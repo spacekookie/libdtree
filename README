@@ -1,6 +1,6 @@
 # libdyntree
 
-:tree: A dynamic n-ary tree to store recursive structures, key-value stores and single fields in a fast and comprehensive C datastructure.
+ :herb: A dynamic n-ary tree to store recursive structures, key-value stores and single fields in a fast and comprehensive C data structure.
 
 ## How to build
 
