@@ -1,0 +1,20 @@
+# libdyntree
+
+:tree: A dynamic n-ary tree to store recursive structures, key-value stores and single fields in a fast and comprehensive C datastructure.
+
+## How to build
+
+libdyntree is built with cmake. It has no external dependencies and compilation has been tested with gcc 6+ on Linx systems. It was tested with C11 but should be able to run on C99 or older.
+
+```console
+$> mkdir build; cd build
+$> cmake ..
+$> make -j 2
+```
+
+This will create a `.a` file. If you require a shared object, you can change the linking behaviour in the `CMakeLists.txt` file.
+
+
+## How to use
+
+Using libdyntree is straighforward with a comprehensive API. Everything resolves around `dtree` objects and providing fields to API functions. Every function is documented as outlined in the header files.
