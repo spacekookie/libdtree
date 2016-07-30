@@ -18,3 +18,153 @@ This will create a `.a` file. If you require a shared object, you can change the
 ## How to use
 
 Using libdyntree is straighforward with a comprehensive API. Everything resolves around `dtree` objects and providing fields to API functions. Every function is documented as outlined in the header files.
+
+
+
+Looking at this piece of code. What do you think it does?
+
+```C
+    void main(void) {
+        rdb_data *root;
+        err = rdb_data_malloc(&root);
+
+        rdb_data_addnumeral(root, 1337);
+    }
+
+```
+
+It creates a new rdb_data object which gets allocated and initialised by the `rdb_data_malloc` function. Then you pass a pointer to the allocated object and afterwards assigns the number "1337" to it.
+
+Note how now the type of the rdb_data node is now `NUMERICAL`. We can no longer store any other type of data in it unless we call `rdb_data_resettype(root)`.
+
+The reedb data storage API is meant to give you an easy recursive and flexible storage system for whatever type of data you might require in C. It was originally written to allow for write and read operations on the C API of libreedb. But I feel that it has uses outside of this project as well. So please use it if you think it is useful.
+
+### Node Types
+
+In total there are five different node types in rdb_data.
+
+ - UNSET
+ - LITERAL
+ - NUMERICAL
+ - RECURSIVE
+ - PAIR
+
+The name `recursive` might be a bit misleading. What it means is that the node contains a list of data - potentially a list of other nodes - and can thus be recursive.
+A pair is simply a mapping of a key to a value. It takes up one node. So to implement a traditional key-value store you take a RECURSIVE node and you store PAIR nodes inside it.
+
+The API is very straightforward.
+
+```C
+
+    rdb_data *root;
+    err = rdb_data_malloc(&root);
+
+    rdb_data *pair1, *pair2;
+
+    /* Add the two nodes to the recursive list */
+    rdb_data_mallocrecursive(root, &pair1);
+    rdb_data_mallocrecursive(root, &pair2);
+
+    /* This code makes 4 new nodes and assigns them as pair nodes */
+    rdb_data *pair1_key, *pair1_val, *pair2_key, *pair2_val
+    rdb_data_mallocpair(pair1, &pair1_key, &pair1_val);
+    rdb_data_mallocpair(pair2, &pair2_key, &pair2_val);
+```
+
+At this point the structure of our rdb_data set would look somewhat like this:
+
+```
+  [root]
+    [pair1] => [ [pair1_key] => [pair1_val] ]
+    [pair2] => [ [pair2_key] => [pair2_val] ]
+```
+
+### A more complex example
+
+From here on out you can then normally put values into the key and value items. You could even have a PAIR or RECURSIVE element as a key or value! The options are limitless.
+
+Also...don't be afraid of reusing your pointers: you don't need to keep them. rdb_data allocates the fields and keeps a reference to each field. This means that a single call can free an entire nested structure. And you don't need to keep coming up with variable names.
+
+You just need one pointer somewhere as a buffer to work on.
+
+```C
+    rdb_data *root;
+    err = rdb_data_malloc(&root);
+
+    rdb_data *pair, *key, *val;
+
+    rdb_data_mallocrecursive(root, &pair);
+    rdb_data_mallocpair(pair, &key, &val);
+
+    // ... Assign data to key and val
+
+    /* Remove the pointers */
+    pair = key = val = NULL;
+
+    /* Start again */
+    rdb_data_mallocrecursive(root, &pair);
+    rdb_data_mallocpair(pair, &key, &val);
+
+    // ... Assign data to key and val
+```
+
+I hope you like this library and can do awesome stuff with rdb_data. If you find any bugs, please report them on the libreedb github repository. This project might become it's own repository at some point but until then, we shall see :)
+
+Below there is a slightly more complicated example, including several nested types and printing the structure.
+
+
+```
+#include <reedb/reedb.h>
+#include <reedb/data.h>
+
+#include <stdio.h>
+
+int main(void)
+{
+    rdb_err_t err;
+    rdb_data *root;
+    err = rdb_data_malloc(&root);
+    printf("Malloc returned: %s\n", rdb_error_getmsg(&err));
+
+    rdb_data *lit, *num, *pair1, *pair2, *rec2;
+    rdb_data_mallocrecursive(root, &lit);
+    rdb_data_mallocrecursive(root, &num);
+    rdb_data_mallocrecursive(root, &rec2);
+    rdb_data_mallocrecursive(root, &pair1);
+    rdb_data_mallocrecursive(root, &pair2);
+
+    rdb_data_addliteral(lit, "This is a string", REAL_STRLEN("This is a string"));
+    rdb_data_addnumeral(num, 1337);
+
+    rdb_data *rec_d1, *rec_d2;
+    rdb_data_mallocrecursive(rec2, &rec_d1);
+    rdb_data_addliteral(rec_d1, "Reedb is awesome!", REAL_STRLEN("Reedb is awesome!"));
+
+    rdb_data_mallocrecursive(rec2, &rec_d2);
+    rdb_data_addnumeral(rec_d2, 666);
+
+    rdb_data *pair1_key, *pair1_val;
+    rdb_data_mallocpair(pair1, &pair1_key, &pair1_val);
+
+    rdb_data_addliteral(pair1_key, "Username", REAL_STRLEN("Username"));
+    rdb_data_addliteral(pair1_val, "spacekookie", REAL_STRLEN("spacekookie"));
+
+    rdb_data *pair2_key, *pair2_val;
+    rdb_data_mallocpair(pair2, &pair2_key, &pair2_val);
+
+    rdb_data_addliteral(pair2_key, "Website", REAL_STRLEN("Website"));
+    rdb_data_addliteral(pair2_val, "www.spacekookie.de", REAL_STRLEN("www.spacekookie.de"));
+
+
+    /* Print our structure */
+    rdb_data_print(root);
+
+    /* Free everything */
+    rdb_data_free(root);
+
+    return 0;
+}
+```
+## License
+
+The library is licensed under LGPL-3 (the same as it's origin project [libreedb](https://github.com/reepass/libreedb)). Have fun <3s
