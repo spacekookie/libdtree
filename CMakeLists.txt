@@ -15,7 +15,7 @@ project(libdyntree)
 set(DYN_TREE_SRC lib/dyn_tree.c)
 
 # Define our library in cmake
-add_library(libdyntree STATIC ${DYN_TREE_SRC})
+add_library(libdyntree SHARED ${DYN_TREE_SRC})
 
 # Include the subdirectories to search for headers
 target_include_directories(libdyntree PUBLIC "include")
