@@ -19,82 +19,85 @@ This will create a `.a` file. If you require a shared object, you can change the
 
 Using libdyntree is straighforward with a comprehensive API. Everything resolves around `dtree` objects and providing fields to API functions. Every function is documented as outlined in the header files.
 
-
-
-Looking at this piece of code. What do you think it does?
+Generally, memory is managed for you by libdyntree. So allocating a new node is as easy as passing a reference pointer to a malloc function:
 
 ```C
-    void main(void) {
-        rdb_data *root;
-        err = rdb_data_malloc(&root);
-
-        rdb_data_addnumeral(root, 1337);
-    }
-
+dtree *data;
+dtree_malloc(&data);
 ```
 
-It creates a new rdb_data object which gets allocated and initialised by the `rdb_data_malloc` function. Then you pass a pointer to the allocated object and afterwards assigns the number "1337" to it.
+The above code will initialise an empty dtree node that can then be written into. While it's possible to edit the values in the struct yourself it is not recomended.
 
-Note how now the type of the rdb_data node is now `NUMERICAL`. We can no longer store any other type of data in it unless we call `rdb_data_resettype(root)`.
+Instead you should use the utility functions provided to you by libdyntree that will make sure that you don't accidentally leak any memory or try to write something invalid into your structures.
 
-The reedb data storage API is meant to give you an easy recursive and flexible storage system for whatever type of data you might require in C. It was originally written to allow for write and read operations on the C API of libreedb. But I feel that it has uses outside of this project as well. So please use it if you think it is useful.
-
-### Node Types
-
-In total there are five different node types in rdb_data.
-
- - UNSET
- - LITERAL
- - NUMERICAL
- - RECURSIVE
- - PAIR
-
-The name `recursive` might be a bit misleading. What it means is that the node contains a list of data - potentially a list of other nodes - and can thus be recursive.
-A pair is simply a mapping of a key to a value. It takes up one node. So to implement a traditional key-value store you take a RECURSIVE node and you store PAIR nodes inside it.
-
-The API is very straightforward.
+**Possible Nodes**
+ - Unset
+ - Literal
+ - Numerical
+ - Recursive
+ - Pair
+ - Pointer
 
 ```C
 
-    rdb_data *root;
-    err = rdb_data_malloc(&root);
+    dtree_addliteral(data, "My String", REAL_STRLEN("My String"));
 
-    rdb_data *pair1, *pair2;
+    dtree_addnumeral(data, 42);
+
+    dtree_addpair(data, &key, &value);
+
+    dtree_addrecursive(data, &sub_d);
+
+    dtree_addpointer(data, my_ptr);
+```
+
+For more detail on how to use each individual function, please consult the libdyntree header file. Following will be a more complex example of how to represent.
+
+
+```C
+
+    dtree *root;
+    err = dtree_malloc(&root);
+
+    dtree *pair1, *pair2;
 
     /* Add the two nodes to the recursive list */
-    rdb_data_mallocrecursive(root, &pair1);
-    rdb_data_mallocrecursive(root, &pair2);
+    dtree_addrecursive(root, &pair1);
+    dtree_addrecursive(root, &pair2);
 
     /* This code makes 4 new nodes and assigns them as pair nodes */
-    rdb_data *pair1_key, *pair1_val, *pair2_key, *pair2_val
-    rdb_data_mallocpair(pair1, &pair1_key, &pair1_val);
-    rdb_data_mallocpair(pair2, &pair2_key, &pair2_val);
+    dtree *pair1_key, *pair1_val, *pair2_key, *pair2_val
+    dtree_addpair(pair1, &pair1_key, &pair1_val);
+    dtree_addpair(pair2, &pair2_key, &pair2_val);
 ```
 
-At this point the structure of our rdb_data set would look somewhat like this:
+At this point the structure of our dtree set would look somewhat like this:
 
 ```
-  [root]
+
+[root]
     [pair1] => [ [pair1_key] => [pair1_val] ]
     [pair2] => [ [pair2_key] => [pair2_val] ]
+
 ```
 
-### A more complex example
+### An even more complicated Example
 
 From here on out you can then normally put values into the key and value items. You could even have a PAIR or RECURSIVE element as a key or value! The options are limitless.
 
-Also...don't be afraid of reusing your pointers: you don't need to keep them. rdb_data allocates the fields and keeps a reference to each field. This means that a single call can free an entire nested structure. And you don't need to keep coming up with variable names.
+Also...don't be afraid of reusing your pointers: you don't need to keep them. dtree allocates the fields and keeps a reference to each field. This means that a single call can free an entire nested structure. And you don't need to keep coming up with variable names.
 
 You just need one pointer somewhere as a buffer to work on.
 
 ```C
-    rdb_data *root;
-    err = rdb_data_malloc(&root);
 
-    rdb_data *pair, *key, *val;
+    dtree *root;
+    err = dtree_malloc(&root);
 
-    rdb_data_mallocrecursive(root, &pair);
-    rdb_data_mallocpair(pair, &key, &val);
+    dtree *pair, *key, *val;
+
+    dtree_addrecursive(root, &pair);
+    dtree_addpair(pair, &key, &val);
 
     // ... Assign data to key and val
 
@@ -102,69 +105,86 @@ You just need one pointer somewhere as a buffer to work on.
     pair = key = val = NULL;
 
     /* Start again */
-    rdb_data_mallocrecursive(root, &pair);
-    rdb_data_mallocpair(pair, &key, &val);
+    dtree_addrecursive(root, &pair);
+    dtree_addpair(pair, &key, &val);
 
     // ... Assign data to key and val
 ```
 
-I hope you like this library and can do awesome stuff with rdb_data. If you find any bugs, please report them on the libreedb github repository. This project might become it's own repository at some point but until then, we shall see :)
+I hope you like this library and can do awesome stuff with dtree. If you find any bugs, please report them on the libreedb github repository. This project might become it's own repository at some point but until then, we shall see :)
 
 Below there is a slightly more complicated example, including several nested types and printing the structure.
 
 
 ```
-#include <reedb/reedb.h>
-#include <reedb/data.h>
-
+#include <dtree/dyn_tree.h>
 #include <stdio.h>
 
 int main(void)
 {
     rdb_err_t err;
-    rdb_data *root;
-    err = rdb_data_malloc(&root);
+    dtree *root;
+    err = dtree_malloc(&root);
     printf("Malloc returned: %s\n", rdb_error_getmsg(&err));
 
-    rdb_data *lit, *num, *pair1, *pair2, *rec2;
-    rdb_data_mallocrecursive(root, &lit);
-    rdb_data_mallocrecursive(root, &num);
-    rdb_data_mallocrecursive(root, &rec2);
-    rdb_data_mallocrecursive(root, &pair1);
-    rdb_data_mallocrecursive(root, &pair2);
+    dtree *lit, *num, *pair1, *pair2, *rec2;
+    dtree_addrecursive(root, &lit);
+    dtree_addrecursive(root, &num);
+    dtree_addrecursive(root, &rec2);
+    dtree_addrecursive(root, &pair1);
+    dtree_addrecursive(root, &pair2);
 
-    rdb_data_addliteral(lit, "This is a string", REAL_STRLEN("This is a string"));
-    rdb_data_addnumeral(num, 1337);
+    dtree_addliteral(lit, "This is a string", REAL_STRLEN("This is a string"));
+    dtree_addnumeral(num, 1337);
 
-    rdb_data *rec_d1, *rec_d2;
-    rdb_data_mallocrecursive(rec2, &rec_d1);
-    rdb_data_addliteral(rec_d1, "Reedb is awesome!", REAL_STRLEN("Reedb is awesome!"));
+    dtree *rec_d1, *rec_d2;
+    dtree_addrecursive(rec2, &rec_d1);
+    dtree_addliteral(rec_d1, "Reedb is awesome!", REAL_STRLEN("Reedb is awesome!"));
 
-    rdb_data_mallocrecursive(rec2, &rec_d2);
-    rdb_data_addnumeral(rec_d2, 666);
+    dtree_addrecursive(rec2, &rec_d2);
+    dtree_addnumeral(rec_d2, 666);
 
-    rdb_data *pair1_key, *pair1_val;
-    rdb_data_mallocpair(pair1, &pair1_key, &pair1_val);
+    dtree *pair1_key, *pair1_val;
+    dtree_addpair(pair1, &pair1_key, &pair1_val);
 
-    rdb_data_addliteral(pair1_key, "Username", REAL_STRLEN("Username"));
-    rdb_data_addliteral(pair1_val, "spacekookie", REAL_STRLEN("spacekookie"));
+    dtree_addliteral(pair1_key, "Username", REAL_STRLEN("Username"));
+    dtree_addliteral(pair1_val, "spacekookie", REAL_STRLEN("spacekookie"));
 
-    rdb_data *pair2_key, *pair2_val;
-    rdb_data_mallocpair(pair2, &pair2_key, &pair2_val);
+    dtree *pair2_key, *pair2_val;
+    dtree_addpair(pair2, &pair2_key, &pair2_val);
 
-    rdb_data_addliteral(pair2_key, "Website", REAL_STRLEN("Website"));
-    rdb_data_addliteral(pair2_val, "www.spacekookie.de", REAL_STRLEN("www.spacekookie.de"));
+    dtree_addliteral(pair2_key, "Website", REAL_STRLEN("Website"));
+    dtree_addliteral(pair2_val, "www.spacekookie.de", REAL_STRLEN("www.spacekookie.de"));
 
 
     /* Print our structure */
-    rdb_data_print(root);
+    dtree_print(root);
 
     /* Free everything */
-    rdb_data_free(root);
+    dtree_free(root);
 
     return 0;
 }
 ```
+
+The above program would have the following output:
+
+```
+[RECURSIVE]
+  ['This is a string']
+  [1337]
+  [RECURSIVE]
+    ['Reedb is awesome!']
+    [666]
+  [PAIR] <==>   ['Username'] => ['spacekookie']
+  [PAIR] <==>   ['Website'] => ['www.spacekookie.de']
+
+```
+
 ## License
 
-The library is licensed under LGPL-3 (the same as it's origin project [libreedb](https://github.com/reepass/libreedb)). Have fun <3s
+This program is free software; you can redistribute it and/or modify it under the terms of the Lesser GNU General Public License as published by the Free Software Foundation; either version 3 of the License, or (at your option) any later version.
+
+This library is part of the **Reepass Project**, namely [libreedb](https://github.com/reepass/libreedb). It was exported from the trunk to be useful for other people.
+
+I hope you enjoy :heart_decoration:

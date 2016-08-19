@@ -74,6 +74,21 @@ dt_err dtree_addliteral(dtree *data, const char *literal, size_t length)
     return SUCCESS;
 }
 
+
+dt_err dtree_addpointer(dtree *data, void *ptr)
+{
+    if(data->type != UNSET)
+        if(data->type != POINTER) return INVALID_PAYLOAD;
+
+    data->payload.pointer = ptr;
+    data->type = POINTER;
+    data->size = sizeof(ptr);
+    data->used = sizeof(*ptr);
+
+    return SUCCESS;
+}
+
+
 dt_err dtree_addnumeral(dtree *data, int numeral)
 {
     /* Make sure we are a literal or unset data object */
@@ -129,6 +144,7 @@ dt_err dtree_addrecursive(dtree *data, dtree *(*new_data))
 
     return SUCCESS;
 }
+
 
 dt_err dtree_addpair(dtree *data, dtree *(*key), dtree *(*value))
 {
@@ -265,6 +281,31 @@ dt_err dtree_free(dtree *data)
 
     if(data->type == LITERAL) {
         if(data->payload.literal) free(data->payload.literal);
+
+    } else if(data->type == RECURSIVE || data->type == PAIR) {
+        int i;
+        dt_err err;
+        for(i = 0; i < data->size; i++) {
+            err = dtree_free(data->payload.recursive[i]);
+            if(err) return err;
+        }
+
+        free(data->payload.recursive);
+
+    } else if(data->type == POINTER) {
+        if(data->payload.pointer) free(data->payload.pointer);
+    }
+
+    free(data);
+    return SUCCESS;
+}
+
+dt_err dtree_free_shallow(dtree *data)
+{
+    if(data == NULL) return SUCCESS;
+
+    if(data->type == LITERAL) {
+        if(data->payload.literal) free(data->payload.literal);
     } else if(data->type == RECURSIVE || data->type == PAIR) {
         int i;
         dt_err err;
@@ -280,13 +321,15 @@ dt_err dtree_free(dtree *data)
     return SUCCESS;
 }
 
-const char *dtree_dtype(dt_uni_t type)
+const char *dtree_dtype(dtree *data)
 {
-    switch(type) {
-        case LITERAL: return "Literal";
-        case NUMERAL: return "Numeral";
-        case RECURSIVE: return "Recursive";
-        default: return "Unknown";
+    switch(data->type) {
+        case LITERAL:       return "Literal";
+        case NUMERAL:       return "Numeral";
+        case RECURSIVE:     return "Recursive";
+        case PAIR:          return "Pair";
+        case POINTER:       return "Pointer";
+        default:            return "Unknown";
     }
 }
 
