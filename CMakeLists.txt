@@ -12,7 +12,7 @@ set(CMAKE_BUILD_TYPE Debug)
 
 # Create our project for further reference
 project(libdyntree)
-set(DYN_TREE_SRC lib/dyn_tree.c)
+set(DYN_TREE_SRC lib/dyn_tree.c lib/dyn_utils.c)
 
 # Define our library in cmake
 add_library(libdyntree SHARED ${DYN_TREE_SRC})
@@ -23,3 +23,11 @@ target_include_directories(libdyntree PRIVATE "lib")
 
 # since the name starts with 'lib' dont add it again
 set_target_properties(libdyntree PROPERTIES PREFIX "")
+
+################### TESTING CODE BELOW ###################
+
+set(TEST_SRC test/main.c)
+add_executable(dyntree_test ${TEST_SRC})
+
+# Library dependencies for the http extention
+target_link_libraries(dyntree_test libdyntree)
