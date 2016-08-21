@@ -225,8 +225,8 @@ dt_err dtree_split_trees(dtree *data, dtree *sp)
 dt_err dtree_merge_trees(dtree *data, dtree *merge)
 {
     /* REALLY make sure the type is correct */
-    if(data->type == UNSET ||
-            !(data->type == RECURSIVE || data->type == PAIR))
+    if(data->type == UNSET) return INVALID_PARAMS;
+    if(!(data->type == RECURSIVE || data->type == PAIR))
         return INVALID_PAYLOAD;
 
     /* This means elements already exist */
@@ -362,7 +362,7 @@ dt_err dtree_free(dtree *data)
     } else if(data->type == RECURSIVE || data->type == PAIR) {
         int i;
         dt_err err;
-        for(i = 0; i < data->size; i++) {
+        for(i = 0; i < data->used; i++) {
             err = dtree_free(data->payload.recursive[i]);
             if(err) return err;
         }
