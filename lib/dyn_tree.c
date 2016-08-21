@@ -9,7 +9,6 @@
 
 #define RDB_REC_DEF_SIZE    2
 #define RDB_REC_MULTIPLY    2
-#define REAL_STRLEN(str) (strlen(str) + 1)
 
 dt_err dtree_malloc(dtree *(*data))
 {
@@ -42,6 +41,7 @@ dt_err dtree_resettype(dtree *data)
 
     /* Set the data type to unset */
     data->type = UNSET;
+    data->encset = DYNTREE_ENCODE_NONE;
     data->size = 0;
     data->used = 0;
 

@@ -21,19 +21,26 @@
 #ifndef _DYNTREE_H_
 #define _DYNTREE_H_
 
-#include "dyn_err.h"
 #include <memory.h>
 
+/* A helpful macro that can take care of \0 termated strings! */
+#define REAL_STRLEN(str) (strlen(str) + 1)
+
+#define DYNTREE_ENCODE_NONE        0x0
+#define DYNTREE_JSON_MINIFIED      0xA
+#define DYNTREE_JSON_HUMAN         0xB
 
 /* Also make sure we're _always_ interpreted as a C file */
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+
 /* Type that determines what data is stored inside a tree-node */
 typedef enum {
     UNSET, LITERAL, NUMERAL, RECURSIVE, PAIR, POINTER
 } dt_uni_t;
+
 
 typedef struct dtree {
     dt_uni_t        type;
@@ -44,7 +51,22 @@ typedef struct dtree {
         struct dtree        *(*recursive);
         void                *pointer;
     } payload;
+    short           encset;
 } dtree;
+
+
+/** Define some generic error codes first that we can propagate **/
+typedef enum dt_err {
+
+    /* General purpose error codes */
+            FAILURE = -1,
+    SUCCESS = 0,
+
+    INVALID_PARAMS,
+    MALLOC_FAILED,
+    INVALID_PAYLOAD
+
+} dt_err;
 
 
 /**
@@ -125,6 +147,38 @@ dt_err dtree_addrecursive(dtree *data, dtree *(*new_data));
  */
 dt_err dtree_addpointer(dtree *data, void *ptr);
 
+/**
+ * This function takes two nodes as arguments. The nodes MUST be
+ * related or an error will be thrown. Both nodes will still
+ * be accessable after this operation but no longer be related to
+ * each other.
+ *
+ * The second node will be removed from the tree of the root node.
+ *
+ *
+ *
+ * @param data Root reference
+ * @param sp Subtree node related to root to split off
+ * @return
+ */
+dt_err dtree_split_trees(dtree *data, dtree *sp);
+
+/**
+ * This function is very simmilar to  dt_err "dtree_addrecursive"
+ * with the difference that it doesn't allocate new memory but instead
+ * works with existing nodes.
+ *
+ * You need to provide a ROOT node which is of type recursive. It will
+ * procede to add the second (merge) node into the child-list of the
+ * root data node - essentially making them related.
+ *
+ * This allows for very efficient tree merging.
+ *
+ * @param data Root reference
+ * @param merge Second root reference to merge
+ * @return
+ */
+dt_err dtree_merge_trees(dtree *data, dtree *merge);
 
 /**
  * A retrieve function to get data back from a node that doesn't require
@@ -175,6 +229,57 @@ dt_err dtree_free_shallow(dtree *data);
  * @return
  */
 dt_err dtree_free(dtree *data);
+
+/**************************
+ *
+ * Error handling functions
+ *
+ **************************/
+
+const char *dtree_err_getmsg(dt_err *e);
+
+/***************************
+ *
+ * Encoding/ Decoding support hooks
+ *
+ ***************************/
+
+/**
+ * This function sets the wanted encoding setting on a
+ * root node (and assumes for children). Without setting flags via
+ * this function first the encode will fail.
+ *
+ * @param data Root reference
+ * @param setting Look at DYNTREE_JSON flags for options
+ * @return
+ */
+dt_err dtree_encode_set(dtree *data, short setting);
+
+/**
+ * A simple recursive node walker that encodes a dyn_tree node hirarchy
+ * into a json string. Requires the encoding setting to be set on the
+ * root node in order to successfully encode.
+ *
+ * Can throw errors and initialise NULL return string.
+ *
+ * @param data
+ * @param json_data
+ * @return
+ */
+dt_err dtree_encode_json(dtree *data, char *(*json_data));
+
+
+/**
+ * Decodes a json string into a dyn_tree node hirarchy while providing
+ * memory safety and error checking. Will gracefully return errors
+ * if the provided json string is invalid or contains errors.
+ *
+ * @param data New root reference
+ * @param json_data Input json string
+ * @return
+ */
+dt_err dtree_decode_json(d_tree *(*data), const char *json_data);
+
 
 #ifdef __cplusplus
 }
