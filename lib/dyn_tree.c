@@ -10,6 +10,13 @@
 #define RDB_REC_DEF_SIZE    2
 #define RDB_REC_MULTIPLY    2
 
+/***Forward declared functions ***/
+
+int recursive_search(dtree**, dtree *, dtree *);
+
+/******/
+
+
 dt_err dtree_malloc(dtree *(*data))
 {
     (*data) = (dtree*) malloc(sizeof(dtree));
@@ -102,6 +109,7 @@ dt_err dtree_addnumeral(dtree *data, int numeral)
     return SUCCESS;
 }
 
+
 dt_err dtree_addrecursive(dtree *data, dtree *(*new_data))
 {
     /* Make sure we are a literal or unset data object */
@@ -186,6 +194,73 @@ dt_err dtree_addpair(dtree *data, dtree *(*key), dtree *(*value))
     return MALLOC_FAILED;
 }
 
+
+dt_err dtree_split_trees(dtree *data, dtree *sp)
+{
+    /* Make sure we are a literal or unset data object */
+    if(data->type == UNSET) return INVALID_PAYLOAD;
+
+    /* Check that sp is really a child of data */
+    dtree *dp;
+    int ret = recursive_search(&dp, data, sp);
+    if(ret != 0) return DATA_NOT_RELATED;
+    if(dp == NULL) return NODE_NOT_FOUND;
+
+    /* Find the exact recursive reference and remove it */
+    int i;
+    for(i = 0; i < dp->used; i++) {
+        if(dp->payload.recursive[i] == NULL) continue;
+
+        /* Manually remove the entry */
+        if(dp->payload.recursive[i] == sp) {
+            dp->used--;
+            dp->payload.recursive[i] = NULL;
+        }
+    }
+
+    return SUCCESS;
+}
+
+
+dt_err dtree_merge_trees(dtree *data, dtree *merge)
+{
+    /* REALLY make sure the type is correct */
+    if(data->type == UNSET ||
+            !(data->type == RECURSIVE || data->type == PAIR))
+        return INVALID_PAYLOAD;
+
+    /* This means elements already exist */
+    if(data->size > 0) {
+
+        /* Used should never > size */
+        if(data->used >= data->size) {
+            data->size += RDB_REC_MULTIPLY;
+
+            dtree **tmp = (dtree**) malloc(sizeof(dtree*) * data->size);
+            memcpy(tmp, data->payload.recursive, sizeof(dtree*) * data->used);
+
+            /* Free the list WITHOUT the children! */
+            free(data->payload.recursive);
+            data->payload.recursive = tmp;
+        }
+
+        /* This means the data object is new */
+    } else {
+        dtree **tmp = (dtree**) malloc(sizeof(dtree*) * data->size);
+        data->payload.recursive = tmp;
+        data->type = RECURSIVE;
+        data->used = 0;
+        data->size = RDB_REC_DEF_SIZE;
+    }
+
+    /* Reference the slot, assign it, then move our ctr */
+    data->payload.recursive[data->used] = merge;
+    data->used++;
+
+    return SUCCESS;
+}
+
+
 void recursive_print(dtree *data, const char *offset)
 {
     dt_uni_t type = data->type;
@@ -260,6 +335,7 @@ void recursive_print(dtree *data, const char *offset)
     }
 }
 
+
 void dtree_print(dtree *data)
 {
     recursive_print(data, "");
@@ -274,6 +350,7 @@ dt_err dtree_get(dtree *data, void *(*val))
 
     return SUCCESS;
 }
+
 
 dt_err dtree_free(dtree *data)
 {
@@ -300,6 +377,7 @@ dt_err dtree_free(dtree *data)
     return SUCCESS;
 }
 
+
 dt_err dtree_free_shallow(dtree *data)
 {
     if(data == NULL) return SUCCESS;
@@ -321,6 +399,7 @@ dt_err dtree_free_shallow(dtree *data)
     return SUCCESS;
 }
 
+
 const char *dtree_dtype(dtree *data)
 {
     switch(data->type) {
@@ -334,6 +413,39 @@ const char *dtree_dtype(dtree *data)
 }
 
 /**************** PRIVATE UTILITY FUNCTIONS ******************/
+
+/**
+ * Steps down the recursive hirarchy of a dyntree node to
+ * find a sub-child target. Returns 0 if it can be found.
+ *
+ * @param data
+ * @param target
+ * @return
+ */
+int recursive_search(dtree **direct_parent, dtree *data, dtree *target)
+{
+    /* Check if data is actually valid */
+    if(data == NULL) return 1;
+
+    /* Compare the pointers :) */
+    if(data == target) return 0;
+
+    int res = 1;
+    if(data->type == RECURSIVE || data->type == PAIR) {
+        int i;
+        for(i = 0; i < data->used; i++) {
+            res = recursive_search(direct_parent, data->payload.recursive[i], target);
+            if(res == 0) {
+
+                /* Save the node that contains our child for later */
+                (*direct_parent) = data;
+                return res;
+            }
+        }
+    }
+
+    return res;
+}
 
 
 /**

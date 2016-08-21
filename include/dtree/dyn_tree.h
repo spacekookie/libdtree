@@ -44,6 +44,7 @@ typedef enum {
 
 typedef struct dtree {
     dt_uni_t        type;
+    short           encset;
     size_t          size, used;
     union {
         char                *literal;
@@ -51,7 +52,6 @@ typedef struct dtree {
         struct dtree        *(*recursive);
         void                *pointer;
     } payload;
-    short           encset;
 } dtree;
 
 
@@ -59,12 +59,14 @@ typedef struct dtree {
 typedef enum dt_err {
 
     /* General purpose error codes */
-            FAILURE = -1,
+    FAILURE = -1,
     SUCCESS = 0,
 
     INVALID_PARAMS,
     MALLOC_FAILED,
-    INVALID_PAYLOAD
+    INVALID_PAYLOAD,
+    DATA_NOT_RELATED,
+    NODE_NOT_FOUND,
 
 } dt_err;
 
@@ -278,7 +280,7 @@ dt_err dtree_encode_json(dtree *data, char *(*json_data));
  * @param json_data Input json string
  * @return
  */
-dt_err dtree_decode_json(d_tree *(*data), const char *json_data);
+dt_err dtree_decode_json(dtree *(*data), const char *json_data);
 
 
 #ifdef __cplusplus
