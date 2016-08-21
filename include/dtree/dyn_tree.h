@@ -37,7 +37,7 @@ extern "C" {
 
 
 /* Type that determines what data is stored inside a tree-node */
-typedef enum {
+typedef enum dt_uni_t {
     UNSET, LITERAL, NUMERAL, RECURSIVE, PAIR, POINTER
 } dt_uni_t;
 
@@ -48,7 +48,7 @@ typedef struct dtree {
     size_t          size, used;
     union {
         char                *literal;
-        int                 numeral;
+        long                numeral;
         struct dtree        *(*recursive);
         void                *pointer;
     } payload;
@@ -181,6 +181,20 @@ dt_err dtree_split_trees(dtree *data, dtree *sp);
  * @return
  */
 dt_err dtree_merge_trees(dtree *data, dtree *merge);
+
+
+/**
+ * Recursive tree search function that will return the first occurence match
+ * to a provided payload (with an exact type). If you have data duplication
+ * in your tree this _might_ return some false positives.
+ *
+ * @param data Root reference to search
+ * @param found Empty pointer to put found node into
+ * @param payload What should be found
+ * @param type What type of data should be found
+ * @return
+ */
+dt_err dtree_search_payload(dtree *data, dtree *(*found), void *payload, dt_uni_t type);
 
 /**
  * A retrieve function to get data back from a node that doesn't require

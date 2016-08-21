@@ -261,6 +261,51 @@ dt_err dtree_merge_trees(dtree *data, dtree *merge)
 }
 
 
+dt_err dtree_search_payload(dtree *data, dtree *(*found), void *payload, dt_uni_t type)
+{
+    if(data == NULL) return INVALID_PARAMS;
+
+    /* Make sure our pointer is clean */
+    *found = NULL;
+
+    if(data->type == RECURSIVE|| data->type == PAIR) {
+
+        int i;
+        for(i = 0; i < data->used; i++) {
+            dt_err err = dtree_search_payload(data->payload.recursive[i], found, payload, type);
+            if(err == SUCCESS) return SUCCESS;
+        }
+
+    } else {
+
+        /* Check the type aligns */
+        if(data->type != type) return NODE_NOT_FOUND;
+
+        switch(type) {
+            case LITERAL:
+                if(strcmp(data->payload.literal, (char*) payload) == 0)
+                    *found = data;
+                break;
+
+            case NUMERAL:
+                if(data->payload.numeral == (long) payload)
+                    *found = data;
+                break;
+
+            case POINTER:
+                if(data->payload.pointer == payload)
+                    *found = data;
+                break;
+
+            default: return NODE_NOT_FOUND;
+        }
+
+    }
+
+    return (*found == NULL) ? NODE_NOT_FOUND : SUCCESS;
+}
+
+
 void recursive_print(dtree *data, const char *offset)
 {
     dt_uni_t type = data->type;
