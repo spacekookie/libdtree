@@ -12,6 +12,8 @@ dt_err search_for_payload();
 
 dt_err json_encode(char *json);
 
+dt_err test_shortcut_functions();
+
 #define TEST(function) \
     printf("Running '%s'...", #function); \
     fflush(stdout); \
@@ -30,12 +32,17 @@ int main(void)
     /* Split and merge trees */
     TEST(split_and_merge())
 
+    /* Test shortcut functions */
+    TEST(test_shortcut_functions())
+
     /* Try to encode a structure into json */
     char json[512]; // Provide a buffer that is big enough
     TEST(json_encode(json))
 
-    printf("Json string: %s\n", json);
+    printf("\n\nJson string: %s\n", json);
 
+    dtree *data;
+    dtree_decode_json(&data, json);
 
     end:
     exit:
@@ -122,75 +129,98 @@ dt_err search_for_payload()
     return err;
 }
 
-dt_err json_encode(char *json)
-{
+dt_err json_encode(char *json) {
     dt_err err;
 
     dtree *root, *a, *b, *c, *found;
     err = dtree_malloc(&root);
-    if(err) goto exit;
-    
+    if (err) goto exit;
+
     dtree *key, *val;
     err = dtree_addrecursive(root, &a);
-    if(err) goto exit;
+    if (err) goto exit;
     err = dtree_addrecursive(root, &b);
-    if(err) goto exit;
+    if (err) goto exit;
     err = dtree_addrecursive(root, &c);
-    if(err) goto exit;
-    
+    if (err) goto exit;
+
     err = dtree_addpair(a, &key, &val);
-    if(err) goto exit;
+    if (err) goto exit;
     err = dtree_addliteral(key, "Server Address", REAL_STRLEN("Server Address"));
-    if(err) goto exit;
+    if (err) goto exit;
     err = dtree_addliteral(val, "https://github.com", REAL_STRLEN("https://github.com"));
-    if(err) goto exit;
-    
+    if (err) goto exit;
+
     key = val = NULL;
 
     err = dtree_addpair(b, &key, &val);
-    if(err) goto exit;
+    if (err) goto exit;
     err = dtree_addliteral(key, "Server Port", REAL_STRLEN("Server Port"));
-    if(err) goto exit;
+    if (err) goto exit;
     err = dtree_addnumeral(val, 8080);
-    if(err) goto exit;
-    
+    if (err) goto exit;
+
     key = val = NULL;
 
     err = dtree_addpair(c, &key, &val);
-    if(err) goto exit;
+    if (err) goto exit;
     err = dtree_addliteral(key, "Users", REAL_STRLEN("Users"));
-    if(err) goto exit;
-    
+    if (err) goto exit;
+
     dtree *sbrec, *sbrec2;
     err = dtree_addrecursive(val, &sbrec);
-    if(err) goto exit;
+    if (err) goto exit;
     err = dtree_addrecursive(val, &sbrec2);
-    if(err) goto exit;
-    
+    if (err) goto exit;
+
     dtree *subkey, *subval;
     err = dtree_addpair(sbrec, &subkey, &subval);
-    if(err) goto exit;
+    if (err) goto exit;
     err = dtree_addliteral(subkey, "spacekookie", REAL_STRLEN("spacekookie"));
-    if(err) goto exit;
+    if (err) goto exit;
     err = dtree_addliteral(subval, "Admin", REAL_STRLEN("Admin"));
-    if(err) goto exit;
-    
+    if (err) goto exit;
+
     key = val = NULL;
 
     dtree *subkey2, *subval2;
     err = dtree_addpair(sbrec2, &subkey2, &subval2);
-    if(err) goto exit;
+    if (err) goto exit;
     err = dtree_addliteral(subkey2, "jane", REAL_STRLEN("jane"));
-    if(err) goto exit;
+    if (err) goto exit;
     err = dtree_addliteral(subval2, "normal", REAL_STRLEN("normal"));
-    if(err) goto exit;
-    
+    if (err) goto exit;
+
     err = dtree_encode_set(root, DYNTREE_JSON_MINIFIED);
-    if(err) goto exit;
+    if (err) goto exit;
     err = dtree_encode_json(root, json);
-    if(err) goto exit;
+    if (err) goto exit;
 
     exit:
     dtree_free(root);
     return err;
-}   
+}
+
+dt_err test_shortcut_functions()
+{
+    dtree *key, *val;
+    dtree *root = dtree_allocpair_new(&key, &val);
+
+    dtree_addliteral(key, "Address", REAL_STRLEN("Address"));
+//    dtree_addliteral(val, "Berlin 10555", REAL_STRLEN("Berlin 10555"));
+
+    dtree *list_root;
+    dtree **list = dtree_alloc_reclist(&list_root, 4); // Allocate 4 nodes
+
+    int i;
+    for(i = 0; i < 4; i++){
+        char message[32];
+        sprintf(message, "Message no.%d", i);
+        dtree_addliteral(list[i], message, REAL_STRLEN(message));
+    }
+
+    dtree_merge_trees(val, list_root);
+
+    dtree_free(root);
+    return SUCCESS; // We think
+}
