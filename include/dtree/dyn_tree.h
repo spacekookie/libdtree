@@ -282,7 +282,7 @@ dt_err dtree_encode_set(dtree *data, short setting);
  * @param json_data
  * @return
  */
-dt_err dtree_encode_json(dtree *data, char *(*json_data));
+dt_err dtree_encode_json(dtree *data, char *json_data);
 
 
 /**

@@ -10,10 +10,12 @@ dt_err split_and_merge();
 
 dt_err search_for_payload();
 
+dt_err json_encode(char *json);
+
 #define TEST(function) \
     printf("Running '%s'...", #function); \
     fflush(stdout); \
-    err = function(); \
+    err = function; \
     printf(" %s\n", (err == 0) ? "OK!" : "FAILED!"); \
     if(err) goto end;
 
@@ -23,12 +25,20 @@ int main(void)
     printf("=== libdyntree test suite ===\n");
 
     /* Search inside trees */
-    TEST(search_for_payload)
+    TEST(search_for_payload())
 
     /* Split and merge trees */
-    TEST(split_and_merge)
+    TEST(split_and_merge())
+
+    /* Try to encode a structure into json */
+    char json[512]; // Provide a buffer that is big enough
+    TEST(json_encode(json))
+
+    printf("Json string: %s\n", json);
+
 
     end:
+    exit:
     printf("==== done ====\n");
     return err;
 }
@@ -111,3 +121,76 @@ dt_err search_for_payload()
     dtree_free(root);
     return err;
 }
+
+dt_err json_encode(char *json)
+{
+    dt_err err;
+
+    dtree *root, *a, *b, *c, *found;
+    err = dtree_malloc(&root);
+    if(err) goto exit;
+    
+    dtree *key, *val;
+    err = dtree_addrecursive(root, &a);
+    if(err) goto exit;
+    err = dtree_addrecursive(root, &b);
+    if(err) goto exit;
+    err = dtree_addrecursive(root, &c);
+    if(err) goto exit;
+    
+    err = dtree_addpair(a, &key, &val);
+    if(err) goto exit;
+    err = dtree_addliteral(key, "Server Address", REAL_STRLEN("Server Address"));
+    if(err) goto exit;
+    err = dtree_addliteral(val, "https://github.com", REAL_STRLEN("https://github.com"));
+    if(err) goto exit;
+    
+    key = val = NULL;
+
+    err = dtree_addpair(b, &key, &val);
+    if(err) goto exit;
+    err = dtree_addliteral(key, "Server Port", REAL_STRLEN("Server Port"));
+    if(err) goto exit;
+    err = dtree_addnumeral(val, 8080);
+    if(err) goto exit;
+    
+    key = val = NULL;
+
+    err = dtree_addpair(c, &key, &val);
+    if(err) goto exit;
+    err = dtree_addliteral(key, "Users", REAL_STRLEN("Users"));
+    if(err) goto exit;
+    
+    dtree *sbrec, *sbrec2;
+    err = dtree_addrecursive(val, &sbrec);
+    if(err) goto exit;
+    err = dtree_addrecursive(val, &sbrec2);
+    if(err) goto exit;
+    
+    dtree *subkey, *subval;
+    err = dtree_addpair(sbrec, &subkey, &subval);
+    if(err) goto exit;
+    err = dtree_addliteral(subkey, "spacekookie", REAL_STRLEN("spacekookie"));
+    if(err) goto exit;
+    err = dtree_addliteral(subval, "Admin", REAL_STRLEN("Admin"));
+    if(err) goto exit;
+    
+    key = val = NULL;
+
+    dtree *subkey2, *subval2;
+    err = dtree_addpair(sbrec2, &subkey2, &subval2);
+    if(err) goto exit;
+    err = dtree_addliteral(subkey2, "jane", REAL_STRLEN("jane"));
+    if(err) goto exit;
+    err = dtree_addliteral(subval2, "normal", REAL_STRLEN("normal"));
+    if(err) goto exit;
+    
+    err = dtree_encode_set(root, DYNTREE_JSON_MINIFIED);
+    if(err) goto exit;
+    err = dtree_encode_json(root, json);
+    if(err) goto exit;
+
+    exit:
+    dtree_free(root);
+    return err;
+}   

@@ -10,7 +10,7 @@
 #define RDB_REC_DEF_SIZE    2
 #define RDB_REC_MULTIPLY    2
 
-/***Forward declared functions ***/
+/*** Forward declared functions ***/
 
 int recursive_search(dtree**, dtree *, dtree *);
 
