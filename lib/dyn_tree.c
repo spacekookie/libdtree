@@ -318,55 +318,56 @@ void recursive_print(dtree *data, const char *offset)
             printf("%s['%s']\n", offset, data->payload.literal);
             break;
         case NUMERAL:
-            printf("%s[%d]\n", offset, data->payload.numeral);
+            printf("%s[%lu]\n", offset, data->payload.numeral);
             break;
         case PAIR:
-            {
-                dt_uni_t k_type = data->payload.recursive[0]->type;
-                dt_uni_t v_type = data->payload.recursive[1]->type;
+        {
+            dt_uni_t k_type = data->payload.recursive[0]->type;
+            dt_uni_t v_type = data->payload.recursive[1]->type;
 
-                if(k_type == LITERAL) printf("%s['%s']", offset, data->payload.recursive[0]->payload.literal);
-                if(k_type == NUMERAL) printf("%s[%d]", offset, data->payload.recursive[0]->payload.numeral);
+            if(k_type == LITERAL) printf("%s['%s']", offset, data->payload.recursive[0]->payload.literal);
+            if(k_type == NUMERAL) printf("%s[%lu]", offset, data->payload.recursive[0]->payload.numeral);
 
-                char new_offset[REAL_STRLEN(offset) + 2];
-                strcpy(new_offset, offset);
-                strcat(new_offset, "  ");
+            char new_offset[REAL_STRLEN(offset) + 2];
+            strcpy(new_offset, offset);
+            strcat(new_offset, "  ");
 
-                if(k_type == RECURSIVE || k_type == PAIR) recursive_print(data->payload.recursive[0], new_offset);
+            if(k_type == RECURSIVE || k_type == PAIR) recursive_print(data->payload.recursive[0], new_offset);
 
-                /* Print the value now */
+            /* Print the value now */
 
-                if(k_type == LITERAL) printf(" => ['%s']\n", data->payload.recursive[1]->payload.literal);
-                if(k_type == NUMERAL) printf(" => [%d]\n", data->payload.recursive[1]->payload.numeral);
+            if(k_type == LITERAL) printf(" => ['%s']\n", data->payload.recursive[1]->payload.literal);
+            if(k_type == NUMERAL) printf(" => [%lu]\n", data->payload.recursive[1]->payload.numeral);
 
-                if(k_type == RECURSIVE || k_type == PAIR) recursive_print(data->payload.recursive[1], new_offset);
-            }
+            if(k_type == RECURSIVE || k_type == PAIR) recursive_print(data->payload.recursive[1], new_offset);
+
             break;
+        }
 
         case RECURSIVE:
         {
             int i;
             printf("%s[RECURSIVE]\n", offset);
             for(i = 0; i < data->used; i++) {
-                dt_uni_t type = data->payload.recursive[i]->type;
+                dt_uni_t t = data->payload.recursive[i]->type;
 
 
                 char new_offset[REAL_STRLEN(offset) + 2];
                 strcpy(new_offset, offset);
                 strcat(new_offset, "  ");
 
-                if(type == LITERAL || type == NUMERAL) {
+                if(t == LITERAL || t == NUMERAL) {
                     recursive_print(data->payload.recursive[i], new_offset);
                     continue;
                 }
 
-                if(type == RECURSIVE)
+                if(t == RECURSIVE)
                 {
                     recursive_print(data->payload.recursive[i], new_offset);
                     continue;
                 }
 
-                if(type == PAIR) {
+                if(t == PAIR) {
                     printf("%s[PAIR] <==> ", new_offset);
                     recursive_print(data->payload.recursive[i], new_offset);
                 }
