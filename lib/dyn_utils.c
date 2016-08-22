@@ -148,6 +148,13 @@ void append(char *buffer, char *message)
     json_len += msg_len;
 }
 
+void append_char(char *buffer, int *ctr, char c)
+{
+    sprintf(buffer + (*ctr), "%c", c);
+    (*ctr)++;
+}
+
+
 /******/
 
 
@@ -242,9 +249,177 @@ dt_err dtree_encode_json(dtree *data, char *json_data)
 }
 
 
-dt_err dtree_decode_json(dtree *(*data), const char *json_data)
+dt_err dtree_decode_json(dtree *(*data), const char *jd)
 {
+    /* Always create an empty root node */
 
+    int ctr = -1;
+    dtree *parents[32]; // Only support 32 deep for now
+    memset(parents, 0, sizeof(dtree*) * 32);
+
+
+#define IN_KEY      5
+#define IN_VAL      6
+#define IN_HASH     7
+#define IN_LIST     8
+#define IN_STRING   9
+#define NEUTRAL     10
+
+    /** Parse stack */
+    int in_str = 0;
+    char curr_key[512]; int key_inx = 0;
+    char curr_str[512]; int str_inx = 0;
+
+    memset(curr_key, 0, 512);
+    memset(curr_str, 0, 512);
+
+    int curr_num = 0;
+    int mode = 0;
+
+    /* Get the first character of our json string */
+    int jd_len = (int) REAL_STRLEN(jd);
+    int pos = 0;
+    char curr;
+
+    for (; pos < jd_len && jd[pos] != '\0'; pos++) {
+        curr = jd[pos];
+
+        switch(curr) {
+            case '{':
+            {
+                dtree *new_root;
+                dtree_malloc(&new_root);
+
+                if(ctr < 0) {
+                    parents[0] = new_root;
+                    ctr = 0;
+                } else {
+                    dtree_addrecursive(parents[ctr], &new_root);
+                    parents[++ctr] = new_root;
+                }
+
+                if(in_str) break; // Ignore if we're in a string
+
+                // Open a block
+//                if(VERBOSE) printf("Opening block for %s\n", curr_key);
+                break;
+            }
+            case '[':
+            {
+                if(in_str) break; // Ignore if we're in a string
+
+                dtree *new_root;
+                dtree_addrecursive(parents[ctr], &new_root);
+                parents[++ctr] = new_root;
+
+                // Open a block
+//                if(VERBOSE) printf("Opening block for '%s'\n", (key_inx > 0) ? curr_key : "ROOT");
+                break;
+            }
+
+            case '}':
+            case ']':
+            {
+                if(in_str) {
+//                    if(VERBOSE) printf("Ending string %s\n", curr_str);
+                } else {
+                    if(curr_key[0] != NULL) {
+
+                        dtree *key, *val;
+                        dtree *rec_entry;
+
+                        dtree_addrecursive(parents[ctr], &rec_entry);
+                        dtree_addpair(rec_entry, &key, &val);
+                        dtree_addliteral(key, curr_key, REAL_STRLEN(curr_key));
+                        dtree_addliteral(val, curr_str, REAL_STRLEN(curr_str));
+
+                        /* Clear the pointer reference */
+                        rec_entry = key = val = NULL;
+
+                        memset(curr_key, 0, (size_t) key_inx);
+                        memset(curr_str, 0, (size_t) str_inx);
+                        key_inx = 0;
+                        str_inx = 0;
+                    }
+
+                    if(ctr > 0) parents[ctr--] = NULL; // Remove current parent again
+                }
+
+
+                // Close a block
+//                if(VERBOSE) printf("Closing block for %c\n", curr);
+                break;
+            }
+
+            case '"':
+            {
+                in_str = (in_str) ? FALSE : TRUE;
+                mode = (in_str) ? IN_STRING : NEUTRAL;
+
+                // Open/ Close a string (depending on mode)
+//                if(VERBOSE && !in_str) printf("String start\n");
+//                if(VERBOSE && in_str) printf("Ending string: %s\n", curr_str);
+                break;
+            }
+
+            case ',':
+            {
+                mode = NEUTRAL;
+//                printf("Ending entry '%s':'%s'\n", curr_key, curr_str);
+                dtree *key, *val;
+                dtree *rec_entry;
+
+                dtree_addrecursive(parents[ctr], &rec_entry);
+                dtree_addpair(rec_entry, &key, &val);
+                dtree_addliteral(key, curr_key, REAL_STRLEN(curr_key));
+                dtree_addliteral(val, curr_str, REAL_STRLEN(curr_str));
+
+                /* Clear the pointer reference */
+                rec_entry = key = val = NULL;
+
+                memset(curr_key, 0, (size_t) key_inx);
+                memset(curr_str, 0, (size_t) str_inx);
+                key_inx = 0;
+                str_inx = 0;
+                break;
+            }
+
+            case ':':
+            {
+                if(in_str) break; // Ignore if we're in a string
+
+                // End a key
+                // if(VERBOSE) printf("Ending key: %s\n", curr_str);
+                strcpy(curr_key, curr_str);
+                memset(curr_str, 0, (size_t) str_inx);
+                key_inx = str_inx;
+                str_inx = 0;
+                break;
+            }
+
+            case '0': case '1': case '2': case '3': case '4':
+            case '5': case '6': case '7': case '8': case '9':
+            {
+                append_char(curr_str, &str_inx, curr);
+                break;
+            }
+
+            default:
+            {
+                if(in_str) {
+//                    if(VERBOSE) printf("Saving letter: %c\n", curr);
+                    append_char(curr_str, &str_inx, curr);
+                }
+                break;
+            }
+        }
+    }
+
+    /* Allocate our first node */
+    *data = parents[0];
+    dtree_print(*data);
+
+    return SUCCESS;
 }
 
 
