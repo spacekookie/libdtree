@@ -1,10 +1,17 @@
-# libdyntree :herb: 
+libdtree
+========
 
-A dynamic n-ary tree to store recursive structures, key-value stores and single fields in a fast and comprehensive C data structure.
+The last C datastructure library you will use. Provides a versatile
+tree-like structure that can act as lists, sets and more! Many
+features are still experimental and the API might change at any point
+so be aware.
 
-## How to build
+How to build
+============
 
-libdyntree is built with cmake. It has no external dependencies and compilation has been tested with gcc 6+ on Linx systems. It was tested with C11 but should be able to run on C99 or older.
+libdyntree is built with cmake. It has no external dependencies and
+compilation has been tested with gcc 6+ on Linx systems. It was tested
+with C99 but shouldbe able to compile with ANSI C as well.
 
 ```console
 $> mkdir build; cd build
@@ -12,25 +19,34 @@ $> cmake ..
 $> make -j 2
 ```
 
-This will create a `.a` file. If you require a shared object, you can change the linking behaviour in the `CMakeLists.txt` file.
-
+This will create a `.so` file. If you require a static object, you can
+change the linking behaviour in the `CMakeLists.txt` file.
 
 ## How to use
 
-Using libdyntree is straighforward with a comprehensive API. Everything resolves around `dtree` objects and providing fields to API functions. Every function is documented as outlined in the header files.
-
-Generally, memory is managed for you by libdyntree. So allocating a new node is as easy as passing a reference pointer to a malloc function:
+Everything resolves around `dtree` objects and providing fields to API
+functions. Generally, memory is managed for you by libdtree:
 
 ```C
+dt_err err;
 dtree *data;
-dtree_malloc(&data);
+err = dtree_malloc(&data);
 ```
 
-The above code will initialise an empty dtree node that can then be written into. While it's possible to edit the values in the struct yourself it is not recomended.
+Alternatively you can use the shortcut alloc functions provided:
 
-Instead you should use the utility functions provided to you by libdyntree that will make sure that you don't accidentally leak any memory or try to write something invalid into your structures.
+```C
+dtree *str_node = dtree_alloc_literal("My string in this node!");
+dtree *num_node = dtree_alloc_numeral(1337);
 
-**Possible Nodes**
+dtree *key, *val;
+dtree *pair_node = dtree *dtree_allocpair_new(&key, &val);
+```
+
+Nodes can change their type, provided they get reset before assigning
+a different type of data to them first. The available types are listed
+below:
+
  - Unset
  - Literal
  - Numerical
@@ -38,153 +54,13 @@ Instead you should use the utility functions provided to you by libdyntree that 
  - Pair
  - Pointer
 
-```C
-
-    dtree_addliteral(data, "My String", REAL_STRLEN("My String"));
-
-    dtree_addnumeral(data, 42);
-
-    dtree_addpair(data, &key, &value);
-
-    dtree_addrecursive(data, &sub_d);
-
-    dtree_addpointer(data, my_ptr);
-```
-
-For more detail on how to use each individual function, please consult the libdyntree header file. Following will be a more complex example of how to represent.
-
-
-```C
-
-    dtree *root;
-    err = dtree_malloc(&root);
-
-    dtree *pair1, *pair2;
-
-    /* Add the two nodes to the recursive list */
-    dtree_addrecursive(root, &pair1);
-    dtree_addrecursive(root, &pair2);
-
-    /* This code makes 4 new nodes and assigns them as pair nodes */
-    dtree *pair1_key, *pair1_val, *pair2_key, *pair2_val
-    dtree_addpair(pair1, &pair1_key, &pair1_val);
-    dtree_addpair(pair2, &pair2_key, &pair2_val);
-```
-
-At this point the structure of our dtree set would look somewhat like this:
-
-```
-
-[root]
-    [pair1] => [ [pair1_key] => [pair1_val] ]
-    [pair2] => [ [pair2_key] => [pair2_val] ]
-
-```
-
-### An even more complicated Example
-
-From here on out you can then normally put values into the key and value items. You could even have a PAIR or RECURSIVE element as a key or value! The options are limitless.
-
-Also...don't be afraid of reusing your pointers: you don't need to keep them. dtree allocates the fields and keeps a reference to each field. This means that a single call can free an entire nested structure. And you don't need to keep coming up with variable names.
-
-You just need one pointer somewhere as a buffer to work on.
-
-```C
-
-    dtree *root;
-    err = dtree_malloc(&root);
-
-    dtree *pair, *key, *val;
-
-    dtree_addrecursive(root, &pair);
-    dtree_addpair(pair, &key, &val);
-
-    // ... Assign data to key and val
-
-    /* Remove the pointers */
-    pair = key = val = NULL;
-
-    /* Start again */
-    dtree_addrecursive(root, &pair);
-    dtree_addpair(pair, &key, &val);
-
-    // ... Assign data to key and val
-```
-
-I hope you like this library and can do awesome stuff with dtree. If you find any bugs, please report them on the libreedb github repository. This project might become it's own repository at some point but until then, we shall see :)
-
-Below there is a slightly more complicated example, including several nested types and printing the structure.
-
-
-```
-#include <dtree/dyn_tree.h>
-#include <stdio.h>
-
-int main(void)
-{
-    rdb_err_t err;
-    dtree *root;
-    err = dtree_malloc(&root);
-    printf("Malloc returned: %s\n", rdb_error_getmsg(&err));
-
-    dtree *lit, *num, *pair1, *pair2, *rec2;
-    dtree_addrecursive(root, &lit);
-    dtree_addrecursive(root, &num);
-    dtree_addrecursive(root, &rec2);
-    dtree_addrecursive(root, &pair1);
-    dtree_addrecursive(root, &pair2);
-
-    dtree_addliteral(lit, "This is a string", REAL_STRLEN("This is a string"));
-    dtree_addnumeral(num, 1337);
-
-    dtree *rec_d1, *rec_d2;
-    dtree_addrecursive(rec2, &rec_d1);
-    dtree_addliteral(rec_d1, "Reedb is awesome!", REAL_STRLEN("Reedb is awesome!"));
-
-    dtree_addrecursive(rec2, &rec_d2);
-    dtree_addnumeral(rec_d2, 666);
-
-    dtree *pair1_key, *pair1_val;
-    dtree_addpair(pair1, &pair1_key, &pair1_val);
-
-    dtree_addliteral(pair1_key, "Username", REAL_STRLEN("Username"));
-    dtree_addliteral(pair1_val, "spacekookie", REAL_STRLEN("spacekookie"));
-
-    dtree *pair2_key, *pair2_val;
-    dtree_addpair(pair2, &pair2_key, &pair2_val);
-
-    dtree_addliteral(pair2_key, "Website", REAL_STRLEN("Website"));
-    dtree_addliteral(pair2_val, "www.spacekookie.de", REAL_STRLEN("www.spacekookie.de"));
-
-
-    /* Print our structure */
-    dtree_print(root);
-
-    /* Free everything */
-    dtree_free(root);
-
-    return 0;
-}
-```
-
-The above program would have the following output:
-
-```
-[RECURSIVE]
-  ['This is a string']
-  [1337]
-  [RECURSIVE]
-    ['Reedb is awesome!']
-    [666]
-  [PAIR] <==>   ['Username'] => ['spacekookie']
-  [PAIR] <==>   ['Website'] => ['www.spacekookie.de']
-
-```
+You can find more usage examples in the wiki
 
 ## License
 
-This program is free software; you can redistribute it and/or modify it under the terms of the Lesser GNU General Public License as published by the Free Software Foundation; either version 3 of the License, or (at your option) any later version.
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 3 of the License, or (at
+your option) any later version.
 
-This library is part of the **Reepass Project**, namely [libreedb](https://github.com/reepass/libreedb). It was exported from the trunk to be useful for other people.
-
-I hope you enjoy :heart_decoration:
+I hope you enjoy ♥
