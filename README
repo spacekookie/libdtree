@@ -54,7 +54,7 @@ below:
  - Pair
  - Pointer
 
-You can find more usage examples in the wiki
+Some more advanced functions include a getter, a search, a keyed search as well as tree merge and split functions. Please consult the wiki for details on how to use some of these functions.
 
 ## License
 
