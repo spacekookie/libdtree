@@ -1,5 +1,5 @@
 // Include our header file
-#include <dtree/dyn_tree.h>
+#include <dtree/dtree.h>
 
 // Runtime includes
 #include <stdlib.h>
@@ -9,6 +9,10 @@
 
 #define RDB_REC_DEF_SIZE    2
 #define RDB_REC_MULTIPLY    2
+
+#define ORIGINAL            (short) 0
+#define SHALLOW             (short) 1
+#define DEEP                (short) 2
 
 /*** Forward declared functions ***/
 
@@ -55,11 +59,13 @@ dt_err dtree_resettype(dtree *data)
     return SUCCESS;
 }
 
-dt_err dtree_addliteral(dtree *data, const char *literal, size_t length)
+dt_err dtree_addliteral(dtree *data, const char *literal)
 {
     /* Make sure we are a literal or unset data object */
     if(data->type != UNSET)
         if(data->type != LITERAL) return INVALID_PAYLOAD;
+
+    size_t length = REAL_STRLEN(literal);
 
     /* Get rid of previous data */
     if(data->payload.literal) free(data->payload.literal);
@@ -96,7 +102,7 @@ dt_err dtree_addpointer(dtree *data, void *ptr)
 }
 
 
-dt_err dtree_addnumeral(dtree *data, int numeral)
+dt_err dtree_addnumeral(dtree *data, long numeral)
 {
     /* Make sure we are a literal or unset data object */
     if(data->type != UNSET)
@@ -110,7 +116,7 @@ dt_err dtree_addnumeral(dtree *data, int numeral)
 }
 
 
-dt_err dtree_addrecursive(dtree *data, dtree *(*new_data))
+dt_err dtree_addlist(dtree *data, dtree *(*new_data))
 {
     /* Make sure we are a literal or unset data object */
     if(data->type != UNSET)
@@ -258,6 +264,61 @@ dt_err dtree_merge_trees(dtree *data, dtree *merge)
     data->used++;
 
     return SUCCESS;
+}
+
+
+dt_err dtree_deep_copy(dtree *data, dtree *(*copy))
+{
+    if(data == NULL) return INVALID_PARAMS;
+
+    return SUCCESS;
+}
+
+dt_err dtree_copy(dtree *data, dtree *(*copy))
+{
+    if(data == NULL) return INVALID_PARAMS;
+    dt_err err = SUCCESS;
+
+    /* Allocate a new node */
+    err = dtree_malloc(copy);
+    if(err) goto exit;
+
+    /* Mark as shallow copy */
+    (*copy)->copy = SHALLOW;
+
+    /* Find out how to handle specific payloads */
+    switch(data->type) {
+        case LITERAL:
+            err = dtree_addliteral(*copy, data->payload.literal);
+            break;
+
+        case NUMERAL:
+            err = dtree_addnumeral(*copy, data->payload.numeral);
+            break;
+
+        case RECURSIVE:
+            (*copy)->type = RECURSIVE;
+            (*copy)->payload.recursive = (dtree**) malloc(sizeof(dtree*) * data->size);
+            memcpy((*copy)->payload.recursive, data->payload.recursive, sizeof(dtree*) * data->used);
+            break;
+
+        case PAIR:
+            (*copy)->type = PAIR;
+            (*copy)->payload.recursive = (dtree**) malloc(sizeof(dtree*) * data->size);
+            memcpy((*copy)->payload.recursive, data->payload.recursive, sizeof(dtree*) * data->used);
+            break;
+
+        case POINTER:
+            (*copy)->type = POINTER;
+            memcpy((*copy)->payload.pointer, data->payload.pointer, sizeof(void*));
+            break;
+
+        default:
+            return INVALID_PAYLOAD;
+    }
+
+    exit:
+    return err;
 }
 
 

@@ -46,6 +46,7 @@ typedef struct dtree {
     dt_uni_t        type;
     short           encset;
     size_t          size, used;
+    short           copy;
     union {
         char                *literal;
         long                numeral;
@@ -97,7 +98,7 @@ dt_err dtree_resettype(dtree *data);
  * @param length TRUE string length to use.
  * @return
  */
-dt_err dtree_addliteral(dtree *data, const char *literal, size_t length);
+dt_err dtree_addliteral(dtree *data, const char *literal);
 
 
 /**
@@ -107,7 +108,7 @@ dt_err dtree_addliteral(dtree *data, const char *literal, size_t length);
  * @param numeral Number to store
  * @return
  */
-dt_err dtree_addnumeral(dtree *data, int numeral);
+dt_err dtree_addnumeral(dtree *data, long numeral);
 
 
 /**
@@ -128,7 +129,7 @@ dt_err dtree_addpair(dtree *data, dtree *(*key), dtree *(*value));
  * @param new_data Reference pointer to a new dtree node
  * @return
  */
-dt_err dtree_addrecursive(dtree *data, dtree *(*new_data));
+dt_err dtree_addlist(dtree *data, dtree *(*new_data));
 
 
 /**
@@ -149,6 +150,7 @@ dt_err dtree_addrecursive(dtree *data, dtree *(*new_data));
  */
 dt_err dtree_addpointer(dtree *data, void *ptr);
 
+
 /**
  * This function takes two nodes as arguments. The nodes MUST be
  * related or an error will be thrown. Both nodes will still
@@ -164,6 +166,7 @@ dt_err dtree_addpointer(dtree *data, void *ptr);
  * @return
  */
 dt_err dtree_split_trees(dtree *data, dtree *sp);
+
 
 /**
  * This function is very simmilar to  dt_err "dtree_addrecursive"
@@ -195,6 +198,32 @@ dt_err dtree_merge_trees(dtree *data, dtree *merge);
  * @return
  */
 dt_err dtree_search_payload(dtree *data, dtree *(*found), void *payload, dt_uni_t type);
+
+
+/**
+ * Performs a deep copy of a data node hirarchy. Does not copy externally
+ * pointed structures. Does garuantee safety of hirarchy.
+ *
+ * @param data
+ * @param copy
+ * @return
+ */
+dt_err dtree_deep_copy(dtree *data, dtree *(*copy));
+
+
+/**
+ * Performs a copy operation on a single node. Copies the payload on a pointer
+ * level which means that strings and numbers will be duplicated whereas external
+ * pointers and lists will only be references to the original content.
+ *
+ * Freeing the copy has no effect on the original payloads stored in other
+ * nodes.
+ *
+ * @param data
+ * @param copy
+ * @return
+ */
+dt_err dtree_copy(dtree *data, dtree *(*copy));
 
 /**
  * A retrieve function to get data back from a node that doesn't require
@@ -228,6 +257,7 @@ const char *dtree_dtype(dtree *data);
  */
 void dtree_print(dtree *data);
 
+
 /**
  * Will free the data reference and all of it's children. It will however NOT
  * touch pointers to objects that weren't allocated by libdyntree!
@@ -237,6 +267,7 @@ void dtree_print(dtree *data);
  */
 dt_err dtree_free_shallow(dtree *data);
 
+
 /**
  * Like #{dtree_free_shallow} but will also remove structs that
  * weren't allocated by libdyntree
@@ -245,6 +276,7 @@ dt_err dtree_free_shallow(dtree *data);
  * @return
  */
 dt_err dtree_free(dtree *data);
+
 
 /**************************
  *
@@ -312,7 +344,7 @@ static dtree *dtree_alloc_literal(const char *string)
 {
     dtree *node;
     dtree_malloc(&node);
-    dtree_addliteral(node, string, REAL_STRLEN(string));
+    dtree_addliteral(node, string);
     return node;
 }
 
@@ -363,7 +395,7 @@ static dtree *dtree_allocpair_new(dtree **key, dtree **val)
  * @param count
  * @return
  */
-static dtree **dtree_alloc_reclist(dtree **root, unsigned int count)
+static dtree **dtree_alloc_listlist(dtree **root, unsigned int count)
 {
     dtree **nodes = malloc(sizeof(dtree**) * count);
 
@@ -371,7 +403,7 @@ static dtree **dtree_alloc_reclist(dtree **root, unsigned int count)
 
     int i;
     for(i = 0; i < count; i++)
-        dtree_addrecursive(*root, &nodes[i]);
+        dtree_addlist(*root, &nodes[i]);
 
     return nodes;
 }
