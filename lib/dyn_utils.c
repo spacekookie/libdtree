@@ -1,4 +1,4 @@
-#include <dtree/dyn_tree.h>
+#include <dtree/dtree.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -294,7 +294,7 @@ dt_err dtree_decode_json(dtree *(*data), const char *jd)
                     parents[0] = new_root;
                     ctr = 0;
                 } else {
-                    dtree_addrecursive(parents[ctr], &new_root);
+                    dtree_addlist(parents[ctr], &new_root);
                     parents[++ctr] = new_root;
                 }
 
@@ -309,7 +309,7 @@ dt_err dtree_decode_json(dtree *(*data), const char *jd)
                 if(in_str) break; // Ignore if we're in a string
 
                 dtree *new_root;
-                dtree_addrecursive(parents[ctr], &new_root);
+                dtree_addlist(parents[ctr], &new_root);
                 parents[++ctr] = new_root;
 
                 // Open a block
@@ -328,10 +328,10 @@ dt_err dtree_decode_json(dtree *(*data), const char *jd)
                         dtree *key, *val;
                         dtree *rec_entry;
 
-                        dtree_addrecursive(parents[ctr], &rec_entry);
+                        dtree_addlist(parents[ctr], &rec_entry);
                         dtree_addpair(rec_entry, &key, &val);
-                        dtree_addliteral(key, curr_key, REAL_STRLEN(curr_key));
-                        dtree_addliteral(val, curr_str, REAL_STRLEN(curr_str));
+                        dtree_addliteral(key, curr_key);
+                        dtree_addliteral(val, curr_str);
 
                         /* Clear the pointer reference */
                         rec_entry = key = val = NULL;
@@ -369,10 +369,10 @@ dt_err dtree_decode_json(dtree *(*data), const char *jd)
                 dtree *key, *val;
                 dtree *rec_entry;
 
-                dtree_addrecursive(parents[ctr], &rec_entry);
+                dtree_addlist(parents[ctr], &rec_entry);
                 dtree_addpair(rec_entry, &key, &val);
-                dtree_addliteral(key, curr_key, REAL_STRLEN(curr_key));
-                dtree_addliteral(val, curr_str, REAL_STRLEN(curr_str));
+                dtree_addliteral(key, curr_key);
+                dtree_addliteral(val, curr_str);
 
                 /* Clear the pointer reference */
                 rec_entry = key = val = NULL;

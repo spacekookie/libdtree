@@ -12,7 +12,7 @@ set(CMAKE_BUILD_TYPE Debug)
 
 # Create our project for further reference
 project(libdyntree)
-set(DYN_TREE_SRC lib/dyn_tree.c lib/dyn_utils.c)
+set(DYN_TREE_SRC lib/dtree.c lib/dyn_utils.c)
 
 # Define our library in cmake
 add_library(libdyntree SHARED ${DYN_TREE_SRC})
