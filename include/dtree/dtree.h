@@ -208,7 +208,7 @@ dt_err dtree_search_payload(dtree *data, dtree *(*found), void *payload, dt_uni_
  * @param copy
  * @return
  */
-dt_err dtree_deep_copy(dtree *data, dtree *(*copy));
+dt_err dtree_copy_deep(dtree *data, dtree *(*copy));
 
 
 /**

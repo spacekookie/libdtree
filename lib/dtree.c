@@ -267,7 +267,7 @@ dt_err dtree_merge_trees(dtree *data, dtree *merge)
 }
 
 
-dt_err dtree_deep_copy(dtree *data, dtree *(*copy))
+dt_err dtree_copy_deep(dtree *data, dtree *(*copy))
 {
     if(data == NULL) return INVALID_PARAMS;
 
