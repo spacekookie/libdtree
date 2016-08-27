@@ -10,153 +10,24 @@
 
 static int json_len = 0;
 
-int human(short mm) {
-    if(mm == DYNTREE_JSON_HUMAN) return 1;
-    return 0;
-}
+/************* Forward Function Declarations *************/
 
-int parse_key_value(dtree *key, char *buffer, short mode)
-{
-    if(key->type != LITERAL) 5;
+// Functions required by encoder
+int human(short );
 
-    size_t key_len = key->used;
-    int base = 3;
+void append(char *, char *);
 
-    /* Make an array that will survive function switch */
-    char lit[key_len + base + 1];
+int parse_key_value(dtree *, char *, short );
 
-    strcpy(buffer, "\"");
-    strcat(buffer, key->payload.literal);
-    strcat(buffer, "\":");
-    strcat(buffer, "\0");
-    return 0;
-}
+const char *parse_value_list(dtree *, char *, char *, short , int , int );
 
-const char *parse_value_list(dtree *value, char *buffer, char *global, short mode, int depth, int last)
-{
-    if(value == NULL) return "[ERROR]";
+// Functions required by decoder
 
-    /* The new offset we need (in \t) */
+void append_char(char *, int *, char );
 
-    int no_len = depth + 1;
-    char new_offset[no_len];
-    int i;
-    for(i = 0; i < depth + 1; i++)
-    strcat(new_offset, "\t");
+long to_long(char *);
 
-    int base;
-//    if(human(mode)) base = 4 + no_len; // "<key>"
-    base = 2;
-    if(!last) base++;
-
-    switch(value->type) {
-        case LITERAL:
-        {
-            size_t key_len = value->used;
-
-            strcpy(buffer, "\"");
-            strcat(buffer, value->payload.literal);
-            strcat(buffer, "\"");
-            strcat(buffer, "\0");
-
-            if(last == 0) strcat(buffer, ",");
-            break;
-        }
-
-        case NUMERAL:
-        {
-            char str[15];
-            sprintf(str, "%ld", value->payload.numeral);
-            int val_len = (int) strlen((char*) str);
-
-            strcat(buffer, str);
-            if(last == 0) strcat(buffer, ",");
-            strcat(buffer, "\0");
-
-            break;
-        }
-
-        case RECURSIVE:
-        {
-            if(value->used > 0) {
-
-                dt_uni_t test = value->payload.recursive[0]->type;
-
-                if(test == LITERAL || test == NUMERAL) {
-                    fflush(stdout);
-
-                    int j;
-                    for(j = 0; j < value->used; j++) {
-                        dtree *child = value->payload.recursive[j];
-
-                        char vall[1024];
-                        parse_value_list(child, vall, global, mode, depth + 1, (i == value->used - 1) ? TRUE : FALSE);
-                        fflush(stdout);
-                    }
-
-                    fflush(stdout);
-
-                } else if(test == PAIR) {
-                    fflush(stdout);
-//                    *global = realloc(*global, sizeof(char) * strlen(*global) + 1);
-                    append(global, "{");
-
-                    int j;
-                    for(j = 0; j < value->used; j++) {
-                        dtree *child = value->payload.recursive[j];
-
-                        if(child->type == PAIR) {
-                            dtree *key = child->payload.recursive[0];
-                            dtree *val = child->payload.recursive[1];
-
-                            char kkey[1024];
-
-                            parse_key_value(key, kkey, mode);
-                            fflush(stdout);
-//                            *global = realloc(*global, sizeof(char) * strlen(*global) + strlen(kkey));
-                            append(global, kkey);
-
-                            char vval[1024];
-                            parse_value_list(val, vval, global, mode, 1, (j == child->used - 1) ? TRUE : FALSE);
-                            fflush(stdout);
-
-//                            *global = realloc(*global, sizeof(char) * strlen(*global) + strlen(vval));
-                            append(global, vval);
-                        }
-                    }
-
-                    fflush(stdout);
-//                    *global = realloc(*global, sizeof(char) * strlen(*global) + 1);
-                    append(global, "}");
-                }
-
-            } else {
-                fflush(stdout);
-            }
-        }
-
-        default: INVALID_PAYLOAD;
-    }
-
-    return "";
-}
-
-void append(char *buffer, char *message)
-{
-    int msg_len = (int) strlen(message);
-    sprintf(buffer + json_len, message);
-    json_len += msg_len;
-}
-
-void append_char(char *buffer, int *ctr, char c)
-{
-    sprintf(buffer + (*ctr), "%c", c);
-    (*ctr)++;
-}
-
-
-/******/
-
+/*********************************************************/
 
 const char *rdb_error_getmsg(dt_err *e)
 {
@@ -269,11 +140,11 @@ dt_err dtree_decode_json(dtree *(*data), const char *jd)
     int in_str = 0;
     char curr_key[512]; int key_inx = 0;
     char curr_str[512]; int str_inx = 0;
+    char curr_num[512]; int num_inx = 0;
 
     memset(curr_key, 0, 512);
     memset(curr_str, 0, 512);
-
-    int curr_num = 0;
+    memset(curr_num, 0, 512);
     int mode = 0;
 
     /* Get the first character of our json string */
@@ -298,10 +169,6 @@ dt_err dtree_decode_json(dtree *(*data), const char *jd)
                     parents[++ctr] = new_root;
                 }
 
-                if(in_str) break; // Ignore if we're in a string
-
-                // Open a block
-//                if(VERBOSE) printf("Opening block for %s\n", curr_key);
                 break;
             }
             case '[':
@@ -311,9 +178,6 @@ dt_err dtree_decode_json(dtree *(*data), const char *jd)
                 dtree *new_root;
                 dtree_addlist(parents[ctr], &new_root);
                 parents[++ctr] = new_root;
-
-                // Open a block
-//                if(VERBOSE) printf("Opening block for '%s'\n", (key_inx > 0) ? curr_key : "ROOT");
                 break;
             }
 
@@ -321,7 +185,6 @@ dt_err dtree_decode_json(dtree *(*data), const char *jd)
             case ']':
             {
                 if(in_str) {
-//                    if(VERBOSE) printf("Ending string %s\n", curr_str);
                 } else {
                     if(curr_key[0] != NULL) {
 
@@ -344,43 +207,43 @@ dt_err dtree_decode_json(dtree *(*data), const char *jd)
 
                     if(ctr > 0) parents[ctr--] = NULL; // Remove current parent again
                 }
-
-
-                // Close a block
-//                if(VERBOSE) printf("Closing block for %c\n", curr);
                 break;
             }
 
             case '"':
             {
                 in_str = (in_str) ? FALSE : TRUE;
-                mode = (in_str) ? IN_STRING : NEUTRAL;
-
-                // Open/ Close a string (depending on mode)
-//                if(VERBOSE && !in_str) printf("String start\n");
-//                if(VERBOSE && in_str) printf("Ending string: %s\n", curr_str);
+                mode = (in_str) ? IN_STRING : NEUTRAL; // TODO: Work with the mode ?
                 break;
             }
 
             case ',':
             {
                 mode = NEUTRAL;
-//                printf("Ending entry '%s':'%s'\n", curr_key, curr_str);
                 dtree *key, *val;
                 dtree *rec_entry;
 
+                /* Add a new pair as a list item */
                 dtree_addlist(parents[ctr], &rec_entry);
                 dtree_addpair(rec_entry, &key, &val);
                 dtree_addliteral(key, curr_key);
-                dtree_addliteral(val, curr_str);
+
+                /* Either make it a literal or number node */
+                if(num_inx > 0)
+                    dtree_addnumeral(val, to_long(curr_num));
+                else
+                    dtree_addliteral(val, curr_str);
 
                 /* Clear the pointer reference */
                 rec_entry = key = val = NULL;
 
+                /* Reset the key/ value status */
                 memset(curr_key, 0, (size_t) key_inx);
                 memset(curr_str, 0, (size_t) str_inx);
+                memset(curr_num, 0, (size_t) num_inx);
                 key_inx = 0;
                 str_inx = 0;
+                num_inx = 0;
                 break;
             }
 
@@ -389,7 +252,6 @@ dt_err dtree_decode_json(dtree *(*data), const char *jd)
                 if(in_str) break; // Ignore if we're in a string
 
                 // End a key
-                // if(VERBOSE) printf("Ending key: %s\n", curr_str);
                 strcpy(curr_key, curr_str);
                 memset(curr_str, 0, (size_t) str_inx);
                 key_inx = str_inx;
@@ -400,16 +262,17 @@ dt_err dtree_decode_json(dtree *(*data), const char *jd)
             case '0': case '1': case '2': case '3': case '4':
             case '5': case '6': case '7': case '8': case '9':
             {
-                append_char(curr_str, &str_inx, curr);
+                if(in_str) {
+                    append_char(curr_str, &str_inx, curr);
+                } else {
+                    append_char(curr_num, &num_inx, curr);
+                }
                 break;
             }
 
             default:
             {
-                if(in_str) {
-//                    if(VERBOSE) printf("Saving letter: %c\n", curr);
-                    append_char(curr_str, &str_inx, curr);
-                }
+                if(in_str) append_char(curr_str, &str_inx, curr);
                 break;
             }
         }
@@ -423,4 +286,155 @@ dt_err dtree_decode_json(dtree *(*data), const char *jd)
 }
 
 
-/**************** PRIVATE UTILITY FUNCTIONS ******************/
+/**************** ENCODER UTILITY FUNCTIONS ******************/
+
+int human(short mode) {
+    if(mode == DYNTREE_JSON_HUMAN) return 1;
+    return 0;
+}
+
+int parse_key_value(dtree *key, char *buffer, short mode)
+{
+    if(key->type != LITERAL) 5;
+
+    size_t key_len = key->used;
+    int base = 3;
+
+    /* Make an array that will survive function switch */
+    char lit[key_len + base + 1];
+
+    strcpy(buffer, "\"");
+    strcat(buffer, key->payload.literal);
+    strcat(buffer, "\":");
+    strcat(buffer, "\0");
+    return 0;
+}
+
+const char *parse_value_list(dtree *value, char *buffer, char *global, short mode, int depth, int last)
+{
+    if(value == NULL) return "[ERROR]";
+
+    /* The new offset we need (in \t) */
+
+    int no_len = depth + 1;
+    char new_offset[no_len];
+    int i;
+    for(i = 0; i < depth + 1; i++)
+        strcat(new_offset, "\t");
+
+    int base;
+//    if(human(mode)) base = 4 + no_len; // "<key>"
+    base = 2;
+    if(!last) base++;
+
+    switch(value->type) {
+        case LITERAL:
+        {
+            size_t key_len = value->used;
+
+            strcpy(buffer, "\"");
+            strcat(buffer, value->payload.literal);
+            strcat(buffer, "\"");
+            strcat(buffer, "\0");
+
+            if(last == 0) strcat(buffer, ",");
+            break;
+        }
+
+        case NUMERAL:
+        {
+            char str[15];
+            sprintf(str, "%ld", value->payload.numeral);
+            int val_len = (int) strlen((char*) str);
+
+            strcat(buffer, str);
+            if(last == 0) strcat(buffer, ",");
+            strcat(buffer, "\0");
+
+            break;
+        }
+
+        case RECURSIVE:
+        {
+            if(value->used > 0) {
+
+                dt_uni_t test = value->payload.recursive[0]->type;
+
+                if(test == LITERAL || test == NUMERAL) {
+                    fflush(stdout);
+
+                    int j;
+                    for(j = 0; j < value->used; j++) {
+                        dtree *child = value->payload.recursive[j];
+
+                        char vall[1024];
+                        parse_value_list(child, vall, global, mode, depth + 1, (i == value->used - 1) ? TRUE : FALSE);
+                        fflush(stdout);
+                    }
+
+                    fflush(stdout);
+
+                } else if(test == PAIR) {
+                    fflush(stdout);
+//                    *global = realloc(*global, sizeof(char) * strlen(*global) + 1);
+                    append(global, "{");
+
+                    int j;
+                    for(j = 0; j < value->used; j++) {
+                        dtree *child = value->payload.recursive[j];
+
+                        if(child->type == PAIR) {
+                            dtree *key = child->payload.recursive[0];
+                            dtree *val = child->payload.recursive[1];
+
+                            char kkey[1024];
+
+                            parse_key_value(key, kkey, mode);
+                            fflush(stdout);
+//                            *global = realloc(*global, sizeof(char) * strlen(*global) + strlen(kkey));
+                            append(global, kkey);
+
+                            char vval[1024];
+                            parse_value_list(val, vval, global, mode, 1, (j == child->used - 1) ? TRUE : FALSE);
+                            fflush(stdout);
+
+//                            *global = realloc(*global, sizeof(char) * strlen(*global) + strlen(vval));
+                            append(global, vval);
+                        }
+                    }
+
+                    fflush(stdout);
+//                    *global = realloc(*global, sizeof(char) * strlen(*global) + 1);
+                    append(global, "}");
+                }
+
+            } else {
+                fflush(stdout);
+            }
+        }
+
+        default: INVALID_PAYLOAD;
+    }
+
+    return "";
+}
+
+void append(char *buffer, char *message)
+{
+    int msg_len = (int) strlen(message);
+    sprintf(buffer + json_len, message);
+    json_len += msg_len;
+}
+
+/**************** DECODER UTILITY FUNCTIONS ******************/
+
+void append_char(char *buffer, int *ctr, char c)
+{
+    sprintf(buffer + (*ctr), "%c", c);
+    (*ctr)++;
+}
+
+long to_long(char *buffer)
+{
+    return atol(buffer);
+}
