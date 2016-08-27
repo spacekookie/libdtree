@@ -39,7 +39,7 @@ dt_err dtree_resettype(dtree *data)
 {
     if(data->type == LITERAL) {
         if(data->payload.literal) free(data->payload.literal);
-    } else if(data->type == RECURSIVE || data->type == PAIR) {
+    } else if(data->type == LIST || data->type == PAIR) {
 
         /* Iterate over all children and clear them */
         int i;
@@ -106,10 +106,10 @@ dt_err dtree_addnumeral(dtree *data, long numeral)
 {
     /* Make sure we are a literal or unset data object */
     if(data->type != UNSET)
-        if(data->type != NUMERAL) return INVALID_PAYLOAD;
+        if(data->type != NUMERIC) return INVALID_PAYLOAD;
 
     data->payload.numeral = numeral;
-    data->type = NUMERAL;
+    data->type = NUMERIC;
     data->size = sizeof(int);
     data->used = sizeof(int);
     return SUCCESS;
@@ -120,7 +120,7 @@ dt_err dtree_addlist(dtree *data, dtree *(*new_data))
 {
     /* Make sure we are a literal or unset data object */
     if(data->type != UNSET)
-        if(data->type != RECURSIVE) return INVALID_PAYLOAD;
+        if(data->type != LIST) return INVALID_PAYLOAD;
 
     dt_err err;
 
@@ -144,7 +144,7 @@ dt_err dtree_addlist(dtree *data, dtree *(*new_data))
     } else {
         dtree **tmp = (dtree**) malloc(sizeof(dtree*) * data->size);
         data->payload.recursive = tmp;
-        data->type = RECURSIVE;
+        data->type = LIST;
         data->used = 0;
         data->size = RDB_REC_DEF_SIZE;
     }
@@ -232,7 +232,7 @@ dt_err dtree_merge_trees(dtree *data, dtree *merge)
 {
     /* REALLY make sure the type is correct */
     if(data->type == UNSET) return INVALID_PARAMS;
-    if(!(data->type == RECURSIVE || data->type == PAIR))
+    if(!(data->type == LIST || data->type == PAIR))
         return INVALID_PAYLOAD;
 
     /* This means elements already exist */
@@ -254,7 +254,7 @@ dt_err dtree_merge_trees(dtree *data, dtree *merge)
     } else {
         dtree **tmp = (dtree**) malloc(sizeof(dtree*) * data->size);
         data->payload.recursive = tmp;
-        data->type = RECURSIVE;
+        data->type = LIST;
         data->used = 0;
         data->size = RDB_REC_DEF_SIZE;
     }
@@ -292,12 +292,12 @@ dt_err dtree_copy(dtree *data, dtree *(*copy))
             err = dtree_addliteral(*copy, data->payload.literal);
             break;
 
-        case NUMERAL:
+        case NUMERIC:
             err = dtree_addnumeral(*copy, data->payload.numeral);
             break;
 
-        case RECURSIVE:
-            (*copy)->type = RECURSIVE;
+        case LIST:
+            (*copy)->type = LIST;
             (*copy)->payload.recursive = (dtree**) malloc(sizeof(dtree*) * data->size);
             memcpy((*copy)->payload.recursive, data->payload.recursive, sizeof(dtree*) * data->used);
             break;
@@ -329,7 +329,7 @@ dt_err dtree_search_payload(dtree *data, dtree *(*found), void *payload, dt_uni_
     /* Make sure our pointer is clean */
     *found = NULL;
 
-    if(data->type == RECURSIVE|| data->type == PAIR) {
+    if(data->type == LIST|| data->type == PAIR) {
 
         int i;
         for(i = 0; i < data->used; i++) {
@@ -348,7 +348,7 @@ dt_err dtree_search_payload(dtree *data, dtree *(*found), void *payload, dt_uni_
                     *found = data;
                 break;
 
-            case NUMERAL:
+            case NUMERIC:
                 if(data->payload.numeral == (long) payload)
                     *found = data;
                 break;
@@ -378,7 +378,7 @@ void recursive_print(dtree *data, const char *offset)
         case LITERAL:
             printf("%s['%s']\n", offset, data->payload.literal);
             break;
-        case NUMERAL:
+        case NUMERIC:
             printf("%s[%lu]\n", offset, data->payload.numeral);
             break;
         case PAIR:
@@ -387,24 +387,24 @@ void recursive_print(dtree *data, const char *offset)
             dt_uni_t v_type = data->payload.recursive[1]->type;
 
             if(k_type == LITERAL) printf("%s['%s']", offset, data->payload.recursive[0]->payload.literal);
-            if(k_type == NUMERAL) printf("%s[%lu]", offset, data->payload.recursive[0]->payload.numeral);
+            if(k_type == NUMERIC) printf("%s[%lu]", offset, data->payload.recursive[0]->payload.numeral);
 
             char new_offset[REAL_STRLEN(offset) + 2];
             strcpy(new_offset, offset);
             strcat(new_offset, "  ");
 
-            if(k_type == RECURSIVE || k_type == PAIR) recursive_print(data->payload.recursive[0], new_offset);
+            if(k_type == LIST || k_type == PAIR) recursive_print(data->payload.recursive[0], new_offset);
 
             /* Print the value now */
             if(v_type == LITERAL) printf(" => ['%s']\n", data->payload.recursive[1]->payload.literal);
-            if(v_type== NUMERAL) printf(" => [%lu]\n", data->payload.recursive[1]->payload.numeral);
+            if(v_type== NUMERIC) printf(" => [%lu]\n", data->payload.recursive[1]->payload.numeral);
 
-            if(v_type == RECURSIVE || k_type == PAIR) recursive_print(data->payload.recursive[1], new_offset);
+            if(v_type == LIST || k_type == PAIR) recursive_print(data->payload.recursive[1], new_offset);
 
             break;
         }
 
-        case RECURSIVE:
+        case LIST:
         {
             int i;
             printf("%s[LIST]\n", offset);
@@ -418,11 +418,11 @@ void recursive_print(dtree *data, const char *offset)
 
                 switch(t) {
                     case LITERAL:
-                    case NUMERAL:
+                    case NUMERIC:
                         recursive_print(data->payload.recursive[i], new_offset);
                         continue;
 
-                    case RECURSIVE:
+                    case LIST:
                         recursive_print(data->payload.recursive[i], new_offset);
                         continue;
 
@@ -453,8 +453,8 @@ void dtree_print(dtree *data)
 dt_err dtree_get(dtree *data, void *(*val))
 {
     if(data->type == LITERAL) *val = (char*) data->payload.literal;
-    if(data->type == NUMERAL) *val = (int*) &data->payload.numeral;
-    if(data->type == RECURSIVE || data->type == PAIR)
+    if(data->type == NUMERIC) *val = (int*) &data->payload.numeral;
+    if(data->type == LIST || data->type == PAIR)
         *val = (dtree*) data->payload.recursive;
 
     return SUCCESS;
@@ -468,7 +468,7 @@ dt_err dtree_free(dtree *data)
     if(data->type == LITERAL) {
         if(data->payload.literal) free(data->payload.literal);
 
-    } else if(data->type == RECURSIVE || data->type == PAIR) {
+    } else if(data->type == LIST || data->type == PAIR) {
         int i;
         dt_err err;
         for(i = 0; i < data->used; i++) {
@@ -493,7 +493,7 @@ dt_err dtree_free_shallow(dtree *data)
 
     if(data->type == LITERAL) {
         if(data->payload.literal) free(data->payload.literal);
-    } else if(data->type == RECURSIVE || data->type == PAIR) {
+    } else if(data->type == LIST || data->type == PAIR) {
         int i;
         dt_err err;
         for(i = 0; i < data->size; i++) {
@@ -513,8 +513,8 @@ const char *dtree_dtype(dtree *data)
 {
     switch(data->type) {
         case LITERAL:       return "Literal";
-        case NUMERAL:       return "Numeral";
-        case RECURSIVE:     return "Recursive";
+        case NUMERIC:       return "Numeral";
+        case LIST:     return "Recursive";
         case PAIR:          return "Pair";
         case POINTER:       return "Pointer";
         default:            return "Unknown";
@@ -540,7 +540,7 @@ int recursive_search(dtree **direct_parent, dtree *data, dtree *target)
     if(data == target) return 0;
 
     int res = 1;
-    if(data->type == RECURSIVE || data->type == PAIR) {
+    if(data->type == LIST || data->type == PAIR) {
         int i;
         for(i = 0; i < data->used; i++) {
             res = recursive_search(direct_parent, data->payload.recursive[i], target);
@@ -567,7 +567,7 @@ int recursive_search(dtree **direct_parent, dtree *data, dtree *target)
 dt_err data_check(dtree *data)
 {
     /* Check if the data block has children */
-    if(data->type == RECURSIVE)
+    if(data->type == LIST)
     {
         printf("Won't override heap payload with data!");
         return INVALID_PAYLOAD;

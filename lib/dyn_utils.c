@@ -74,7 +74,7 @@ dt_err dtree_encode_json(dtree *data, char *json_data)
     char *open = "{";
     char *close = "}";
 
-    if(data->type == RECURSIVE) {
+    if(data->type == LIST) {
 
         fflush(stdout);
         append(json_data, open);
@@ -101,7 +101,7 @@ dt_err dtree_encode_json(dtree *data, char *json_data)
                 append(json_data, vval);
                 memset(vval, 0, 1024);
 
-            } else if(child->type == RECURSIVE) {
+            } else if(child->type == LIST) {
                 dt_err err = dtree_encode_json(child, json_data);
                 if(err) return err;
             }
@@ -341,7 +341,7 @@ const char *parse_value_list(dtree *value, char *buffer, char *global, short mod
             break;
         }
 
-        case NUMERAL:
+        case NUMERIC:
         {
             char str[15];
             sprintf(str, "%ld", value->payload.numeral);
@@ -354,13 +354,13 @@ const char *parse_value_list(dtree *value, char *buffer, char *global, short mod
             break;
         }
 
-        case RECURSIVE:
+        case LIST:
         {
             if(value->used > 0) {
 
                 dt_uni_t test = value->payload.recursive[0]->type;
 
-                if(test == LITERAL || test == NUMERAL) {
+                if(test == LITERAL || test == NUMERIC) {
                     fflush(stdout);
 
                     int j;

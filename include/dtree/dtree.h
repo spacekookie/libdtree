@@ -38,7 +38,7 @@ extern "C" {
 
 /* Type that determines what data is stored inside a tree-node */
 typedef enum dt_uni_t {
-    UNSET, LITERAL, NUMERAL, RECURSIVE, PAIR, POINTER
+    UNSET, LITERAL, NUMERIC, LIST, PAIR, POINTER
 } dt_uni_t;
 
 
