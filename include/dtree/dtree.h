@@ -63,11 +63,12 @@ typedef enum dt_err {
     FAILURE = -1,
     SUCCESS = 0,
 
-    INVALID_PARAMS,
-    MALLOC_FAILED,
-    INVALID_PAYLOAD,
-    DATA_NOT_RELATED,
-    NODE_NOT_FOUND,
+    INVALID_PARAMS,         // A function didn't get the required parameters
+    MALLOC_FAILED,          // A memory allocation failed
+    INVALID_PAYLOAD,        // The payload of a node is invalid
+    DATA_NOT_RELATED,       // Tried to split non-related trees
+    NODE_NOT_FOUND,         // The sought after node was not found
+    NODE_NOT_ORIGINAL,      // Tried to free a node which was a shallow copy
 
 } dt_err;
 
