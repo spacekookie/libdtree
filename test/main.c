@@ -1,6 +1,8 @@
 
 #include <stdio.h>
+
 #include <dtree/dtree.h>
+#include <dtree/eztree.h>
 
 /**
  * A small test that creates a tree, splits the nodes
@@ -26,37 +28,34 @@ int main(void)
     dt_err err;
     printf("=== libdyntree test suite ===\n");
 
-    /* Search inside trees */
-    TEST(search_for_payload())
+//    /* Search inside trees */
+//    TEST(search_for_payload())
+//
+//    /* Split and merge trees */
+//    TEST(split_and_merge())
+//
+//    /* Test shortcut functions */
+//    TEST(test_shortcut_functions())
+//
+//    /* Try to encode a structure into json */
+//    char json[512]; // Provide a buffer that is big enough
+//    TEST(json_encode(json))
+//
+//    printf("\n\nJson string: %s\n", json);
+//
+//    dtree *data;
+//    dtree_decode_json(&data, json);
+//    dtree_free(data);
 
-    /* Split and merge trees */
-    TEST(split_and_merge())
+    dtree *root, *child, *key, *val;
+    dtree_malloc(&root);
+    dtree_addlist(root, &child);
+    dtree_addpair(child, &key, &val);
+    dtree_addliteral(key, "server");
+    dtree_addliteral(val, "github.com");
 
-    /* Test shortcut functions */
-    TEST(test_shortcut_functions())
-
-    /* Try to encode a structure into json */
-    char json[512]; // Provide a buffer that is big enough
-    TEST(json_encode(json))
-
-    printf("\n\nJson string: %s\n", json);
-
-    dtree *data;
-    dtree_decode_json(&data, json);
-
-    /* Copy structures */
-
-    dtree *key, *val;
-    dtree *root = dtree_allocpair_new(&key, &val);
-
-    dtree_addliteral(key, "Core Data");
-    dtree_addliteral(val, "dtree is cool!");
-
-    dtree *root_copy;
-    dtree_copy(root, &root_copy);
-
-    printf("Copy complete?\n");
-
+    dtree *copy;
+    dtree_copy_deep(root, &copy);
 
     end:
     exit:
@@ -135,7 +134,7 @@ dt_err search_for_payload()
     err = dtree_search_payload(root, &found, (void*) string, LITERAL);
     if(err) goto exit;
 
-    err = dtree_search_payload(root, &found, (void*) 1337, NUMERAL);
+    err = dtree_search_payload(root, &found, (void*) 1337, NUMERIC);
     if(err) goto exit;
 
     exit:
@@ -221,19 +220,19 @@ dt_err test_shortcut_functions()
     dtree *root = dtree_allocpair_new(&key, &val);
 
     dtree_addliteral(key, "Address");
-//    dtree_addliteral(val, "Berlin 10555", REAL_STRLEN("Berlin 10555"));
+    dtree_addliteral(val, "Berlin 10555");
 
-    dtree *list_root;
-    dtree **list = dtree_alloc_listlist(&list_root, 4); // Allocate 4 nodes
-
-    int i;
-    for(i = 0; i < 4; i++){
-        char message[32];
-        sprintf(message, "Message no.%d", i);
-        dtree_addliteral(list[i], message);
-    }
-
-    dtree_merge_trees(val, list_root);
+//    dtree *list_root;
+//    dtree **list = dtree_alloc_listlist(&list_root, 4); // Allocate 4 nodes
+//
+//    int i;
+//    for(i = 0; i < 4; i++){
+//        char message[32];
+//        sprintf(message, "Message no.%d", i);
+//        dtree_addliteral(list[i], message);
+//    }
+//
+//    dtree_merge_trees(val, list_root);
 
     dtree_free(root);
     return SUCCESS; // We think

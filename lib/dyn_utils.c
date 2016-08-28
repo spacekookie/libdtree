@@ -82,11 +82,11 @@ dt_err dtree_encode_json(dtree *data, char *json_data)
         /* Iterate through all it's children */
         int i;
         for(i = 0; i < data->used; i++) {
-            dtree *child = data->payload.recursive[i];
+            dtree *child = data->payload.list[i];
 
             if(child->type == PAIR) {
-                dtree *key = child->payload.recursive[0];
-                dtree *val = child->payload.recursive[1];
+                dtree *key = child->payload.list[0];
+                dtree *val = child->payload.list[1];
 
                 char kkey[1024];
                 parse_key_value(key, kkey, mode);;
@@ -186,7 +186,7 @@ dt_err dtree_decode_json(dtree *(*data), const char *jd)
             {
                 if(in_str) {
                 } else {
-                    if(curr_key[0] != NULL) {
+                    if(curr_key[0] != '\0') {
 
                         dtree *key, *val;
                         dtree *rec_entry;
@@ -358,14 +358,14 @@ const char *parse_value_list(dtree *value, char *buffer, char *global, short mod
         {
             if(value->used > 0) {
 
-                dt_uni_t test = value->payload.recursive[0]->type;
+                dt_uni_t test = value->payload.list[0]->type;
 
                 if(test == LITERAL || test == NUMERIC) {
                     fflush(stdout);
 
                     int j;
                     for(j = 0; j < value->used; j++) {
-                        dtree *child = value->payload.recursive[j];
+                        dtree *child = value->payload.list[j];
 
                         char vall[1024];
                         parse_value_list(child, vall, global, mode, depth + 1, (i == value->used - 1) ? TRUE : FALSE);
@@ -381,11 +381,11 @@ const char *parse_value_list(dtree *value, char *buffer, char *global, short mod
 
                     int j;
                     for(j = 0; j < value->used; j++) {
-                        dtree *child = value->payload.recursive[j];
+                        dtree *child = value->payload.list[j];
 
                         if(child->type == PAIR) {
-                            dtree *key = child->payload.recursive[0];
-                            dtree *val = child->payload.recursive[1];
+                            dtree *key = child->payload.list[0];
+                            dtree *val = child->payload.list[1];
 
                             char kkey[1024];
 
