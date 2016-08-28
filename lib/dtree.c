@@ -16,9 +16,9 @@
 
 /*** Forward declared functions ***/
 
-int recursive_search(dtree**, dtree *, dtree *);
+int list_search(dtree**, dtree *, dtree *);
 
-void recursive_print(dtree *data, const char *offset);
+void list_print(dtree *data, const char *offset);
 
 /******/
 
@@ -47,7 +47,7 @@ dt_err dtree_resettype(dtree *data)
         int i;
         dt_err err;
         for(i = 0; i < data->size; i++) {
-            err = dtree_free(data->payload.recursive[i]);
+            err = dtree_free(data->payload.list[i]);
             if(err) return err;
         }
     }
@@ -135,17 +135,17 @@ dt_err dtree_addlist(dtree *data, dtree *(*new_data))
 
             // TODO Use Realloc
             dtree **tmp = (dtree**) malloc(sizeof(dtree*) * data->size);
-            memcpy(tmp, data->payload.recursive, sizeof(dtree*) * data->used);
+            memcpy(tmp, data->payload.list, sizeof(dtree*) * data->used);
 
             /* Free the list WITHOUT the children! */
-            free(data->payload.recursive);
-            data->payload.recursive = tmp;
+            free(data->payload.list);
+            data->payload.list = tmp;
         }
 
     /* This means the data object is new */
     } else {
         dtree **tmp = (dtree**) malloc(sizeof(dtree*) * data->size);
-        data->payload.recursive = tmp;
+        data->payload.list = tmp;
         data->type = LIST;
         data->used = 0;
         data->size = RDB_REC_DEF_SIZE;
@@ -155,7 +155,7 @@ dt_err dtree_addlist(dtree *data, dtree *(*new_data))
     if(err) return err;
 
     /* Reference the slot, assign it, then move our ctr */
-    data->payload.recursive[data->used] = *new_data;
+    data->payload.list[data->used] = *new_data;
     data->used++;
 
     return SUCCESS;
@@ -181,12 +181,12 @@ dt_err dtree_addpair(dtree *data, dtree *(*key), dtree *(*value))
     dtree **tmp = (dtree**) malloc(sizeof(dtree*) * data->size);
     if(!tmp) goto cleanup;
 
-    data->payload.recursive = tmp;
+    data->payload.list = tmp;
 
     { /* Assign data to new array */
-        data->payload.recursive[data->used] = *key;
+        data->payload.list[data->used] = *key;
         data->used++;
-        data->payload.recursive[data->used] = *value;
+        data->payload.list[data->used] = *value;
         data->used++;
     }
 
@@ -210,19 +210,19 @@ dt_err dtree_split_trees(dtree *data, dtree *sp)
 
     /* Check that sp is really a child of data */
     dtree *dp;
-    int ret = recursive_search(&dp, data, sp);
+    int ret = list_search(&dp, data, sp);
     if(ret != 0) return DATA_NOT_RELATED;
     if(dp == NULL) return NODE_NOT_FOUND;
 
-    /* Find the exact recursive reference and remove it */
+    /* Find the exact list reference and remove it */
     int i;
     for(i = 0; i < dp->used; i++) {
-        if(dp->payload.recursive[i] == NULL) continue;
+        if(dp->payload.list[i] == NULL) continue;
 
         /* Manually remove the entry */
-        if(dp->payload.recursive[i] == sp) {
+        if(dp->payload.list[i] == sp) {
             dp->used--;
-            dp->payload.recursive[i] = NULL;
+            dp->payload.list[i] = NULL;
         }
     }
 
@@ -245,24 +245,24 @@ dt_err dtree_merge_trees(dtree *data, dtree *merge)
             data->size += RDB_REC_MULTIPLY;
 
             dtree **tmp = (dtree**) malloc(sizeof(dtree*) * data->size);
-            memcpy(tmp, data->payload.recursive, sizeof(dtree*) * data->used);
+            memcpy(tmp, data->payload.list, sizeof(dtree*) * data->used);
 
             /* Free the list WITHOUT the children! */
-            free(data->payload.recursive);
-            data->payload.recursive = tmp;
+            free(data->payload.list);
+            data->payload.list = tmp;
         }
 
         /* This means the data object is new */
     } else {
         dtree **tmp = (dtree**) malloc(sizeof(dtree*) * data->size);
-        data->payload.recursive = tmp;
+        data->payload.list = tmp;
         data->type = LIST;
         data->used = 0;
         data->size = RDB_REC_DEF_SIZE;
     }
 
     /* Reference the slot, assign it, then move our ctr */
-    data->payload.recursive[data->used] = merge;
+    data->payload.list[data->used] = merge;
     data->used++;
 
     return SUCCESS;
@@ -296,7 +296,7 @@ dt_err dtree_copy_deep(dtree *data, dtree *(*copy))
             int num = (int) data->used;
 
             for(i = 0; i < num; i++) {
-                dtree *node = data->payload.recursive[i];
+                dtree *node = data->payload.list[i];
 
                 dtree *new;
                 dtree_addlist((*copy), &new);
@@ -311,8 +311,8 @@ dt_err dtree_copy_deep(dtree *data, dtree *(*copy))
             dtree *key, *val;
             dtree_addpair((*copy), &key, &val);
 
-            dtree *orig_key = data->payload.recursive[0];
-            dtree *orig_val = data->payload.recursive[1];
+            dtree *orig_key = data->payload.list[0];
+            dtree *orig_val = data->payload.list[1];
 
             dtree_copy_deep(orig_key, &key);
             dtree_copy_deep(orig_val, &val);
@@ -356,14 +356,14 @@ dt_err dtree_copy(dtree *data, dtree *(*copy))
 
         case LIST:
             (*copy)->type = LIST;
-            (*copy)->payload.recursive = (dtree**) malloc(sizeof(dtree*) * data->size);
-            memcpy((*copy)->payload.recursive, data->payload.recursive, sizeof(dtree*) * data->used);
+            (*copy)->payload.list = (dtree**) malloc(sizeof(dtree*) * data->size);
+            memcpy((*copy)->payload.list, data->payload.list, sizeof(dtree*) * data->used);
             break;
 
         case PAIR:
             (*copy)->type = PAIR;
-            (*copy)->payload.recursive = (dtree**) malloc(sizeof(dtree*) * data->size);
-            memcpy((*copy)->payload.recursive, data->payload.recursive, sizeof(dtree*) * data->used);
+            (*copy)->payload.list = (dtree**) malloc(sizeof(dtree*) * data->size);
+            memcpy((*copy)->payload.list, data->payload.list, sizeof(dtree*) * data->used);
             break;
 
         case POINTER:
@@ -391,7 +391,7 @@ dt_err dtree_search_payload(dtree *data, dtree *(*found), void *payload, dt_uni_
 
         int i;
         for(i = 0; i < data->used; i++) {
-            dt_err err = dtree_search_payload(data->payload.recursive[i], found, payload, type);
+            dt_err err = dtree_search_payload(data->payload.list[i], found, payload, type);
             if(err == SUCCESS) return SUCCESS;
         }
 
@@ -425,7 +425,7 @@ dt_err dtree_search_payload(dtree *data, dtree *(*found), void *payload, dt_uni_
 }
 
 
-void recursive_print(dtree *data, const char *offset)
+void list_print(dtree *data, const char *offset)
 {
     dt_uni_t type = data->type;
 
@@ -444,23 +444,23 @@ void recursive_print(dtree *data, const char *offset)
 
         case PAIR:
         {
-            dt_uni_t k_type = data->payload.recursive[0]->type;
-            dt_uni_t v_type = data->payload.recursive[1]->type;
+            dt_uni_t k_type = data->payload.list[0]->type;
+            dt_uni_t v_type = data->payload.list[1]->type;
 
-            if(k_type == LITERAL) printf("%s['%s']", offset, data->payload.recursive[0]->payload.literal);
-            if(k_type == NUMERIC) printf("%s[%lu]", offset, data->payload.recursive[0]->payload.numeral);
+            if(k_type == LITERAL) printf("%s['%s']", offset, data->payload.list[0]->payload.literal);
+            if(k_type == NUMERIC) printf("%s[%lu]", offset, data->payload.list[0]->payload.numeral);
 
             char new_offset[REAL_STRLEN(offset) + 2];
             strcpy(new_offset, offset);
             strcat(new_offset, "  ");
 
-            if(k_type == LIST || k_type == PAIR) recursive_print(data->payload.recursive[0], new_offset);
+            if(k_type == LIST || k_type == PAIR) list_print(data->payload.list[0], new_offset);
 
             /* Print the value now */
-            if(v_type == LITERAL) printf(" => ['%s']\n", data->payload.recursive[1]->payload.literal);
-            if(v_type== NUMERIC) printf(" => [%lu]\n", data->payload.recursive[1]->payload.numeral);
+            if(v_type == LITERAL) printf(" => ['%s']\n", data->payload.list[1]->payload.literal);
+            if(v_type== NUMERIC) printf(" => [%lu]\n", data->payload.list[1]->payload.numeral);
 
-            if(v_type == LIST || k_type == PAIR) recursive_print(data->payload.recursive[1], new_offset);
+            if(v_type == LIST || k_type == PAIR) list_print(data->payload.list[1], new_offset);
 
             break;
         }
@@ -470,7 +470,7 @@ void recursive_print(dtree *data, const char *offset)
             int i;
             printf("%s[LIST]\n", offset);
             for(i = 0; i < data->used; i++) {
-                dt_uni_t t = data->payload.recursive[i]->type;
+                dt_uni_t t = data->payload.list[i]->type;
 
                 /* Calculate the new offset */
                 char new_offset[REAL_STRLEN(offset) + 2];
@@ -480,16 +480,16 @@ void recursive_print(dtree *data, const char *offset)
                 switch(t) {
                     case LITERAL:
                     case NUMERIC:
-                        recursive_print(data->payload.recursive[i], new_offset);
+                        list_print(data->payload.list[i], new_offset);
                         continue;
 
                     case LIST:
-                        recursive_print(data->payload.recursive[i], new_offset);
+                        list_print(data->payload.list[i], new_offset);
                         continue;
 
                     case PAIR:
                         printf("%s[PAIR] <==> ", new_offset);
-                        recursive_print(data->payload.recursive[i], new_offset);
+                        list_print(data->payload.list[i], new_offset);
                         continue;
 
                     default:
@@ -508,14 +508,14 @@ void recursive_print(dtree *data, const char *offset)
 
 void dtree_print(dtree *data)
 {
-    recursive_print(data, "");
+    list_print(data, "");
 }
 
 dt_err dtree_get(dtree *data, void *(*val))
 {
     if(data->type == LITERAL) *val = data->payload.literal;
     if(data->type == NUMERIC) *val = &data->payload.numeral;
-    if(data->type == LIST || data->type == PAIR) *val = (dtree*) data->payload.recursive;
+    if(data->type == LIST || data->type == PAIR) *val = (dtree*) data->payload.list;
     return SUCCESS;
 }
 
@@ -533,11 +533,11 @@ dt_err dtree_free(dtree *data)
         for(i = 0; i < data->used; i++) {
             if(data->copy == SHALLOW) continue;
 
-            err = dtree_free(data->payload.recursive[i]);
+            err = dtree_free(data->payload.list[i]);
             if(err) return err;
         }
 
-        free(data->payload.recursive);
+        free(data->payload.list);
 
     } else if(data->type == POINTER) {
         if(data->copy != SHALLOW && data->payload.pointer)
@@ -559,11 +559,11 @@ dt_err dtree_free_shallow(dtree *data)
         int i;
         dt_err err;
         for(i = 0; i < data->size; i++) {
-            err = dtree_free(data->payload.recursive[i]);
+            err = dtree_free(data->payload.list[i]);
             if(err) return err;
         }
 
-        free(data->payload.recursive);
+        free(data->payload.list);
     }
 
     free(data);
@@ -588,14 +588,14 @@ const char *dtree_dtype(dtree *data)
 
 
 /**
- * Steps down the recursive hirarchy of a dyntree node to
+ * Steps down the list hirarchy of a dyntree node to
  * find a sub-child target. Returns 0 if it can be found.
  *
  * @param data
  * @param target
  * @return
  */
-int recursive_search(dtree **direct_parent, dtree *data, dtree *target)
+int list_search(dtree **direct_parent, dtree *data, dtree *target)
 {
     /* Check if data is actually valid */
     if(data == NULL) return 1;
@@ -607,7 +607,7 @@ int recursive_search(dtree **direct_parent, dtree *data, dtree *target)
     if(data->type == LIST || data->type == PAIR) {
         int i;
         for(i = 0; i < data->used; i++) {
-            res = recursive_search(direct_parent, data->payload.recursive[i], target);
+            res = list_search(direct_parent, data->payload.list[i], target);
             if(res == 0) {
 
                 /* Save the node that contains our child for later */

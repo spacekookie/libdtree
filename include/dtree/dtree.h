@@ -4,15 +4,15 @@
  *
  * With the API you can easily create structures like the following:
  *
- * root [recursive]
- *    child1 [recursive]
+ * root [list]
+ *    child1 [list]
  *       key [literal] - "Username"
  *       value [literal] - "spacekookie"
- *    child2 [recursive]
+ *    child2 [list]
  *       key [literal] - "Age"
  *       value [numerical] - 23
  *    child3
- *       subchild [recursive]
+ *       subchild [list]
  *          ...
  *
  * Freeing the root node will free all children
@@ -50,7 +50,7 @@ typedef struct dtree {
     union {
         char                *literal;
         long                numeral;
-        struct dtree        *(*recursive);
+        struct dtree        *(*list);
         void                *pointer;
     } payload;
 } dtree;
@@ -169,11 +169,11 @@ dt_err dtree_split_trees(dtree *data, dtree *sp);
 
 
 /**
- * This function is very simmilar to  dt_err "dtree_addrecursive"
+ * This function is very simmilar to  dt_err "dtree_addlist"
  * with the difference that it doesn't allocate new memory but instead
  * works with existing nodes.
  *
- * You need to provide a ROOT node which is of type recursive. It will
+ * You need to provide a ROOT node which is of type list. It will
  * procede to add the second (merge) node into the child-list of the
  * root data node - essentially making them related.
  *
@@ -200,7 +200,6 @@ dt_err dtree_merge_trees(dtree *data, dtree *merge);
 dt_err dtree_search_payload(dtree *data, dtree *(*found), void *payload, dt_uni_t type);
 
 
-
 /**
  * Much like #{dtree_search_payload} but limiting it's search to keys in a list structure of certain depth.
  * This means that in a key-value store structure only top-level items can be searched or the entire
@@ -213,6 +212,7 @@ dt_err dtree_search_payload(dtree *data, dtree *(*found), void *payload, dt_uni_
  * @return
  */
 dt_err dtree_search_keypayload(dtree *data, dtree *(*found), void *payload, dt_uni_t type, int depth);
+
 
 /**
  * Performs a deep copy of a data node hirarchy. Does not copy externally
@@ -320,7 +320,7 @@ const char *dtree_err_getmsg(dt_err *e);
 dt_err dtree_encode_set(dtree *data, short setting);
 
 /**
- * A simple recursive node walker that encodes a dyn_tree node hirarchy
+ * A simple list node walker that encodes a dyn_tree node hirarchy
  * into a json string. Requires the encoding setting to be set on the
  * root node in order to successfully encode.
  *
@@ -343,86 +343,6 @@ dt_err dtree_encode_json(dtree *data, char *json_data);
  * @return
  */
 dt_err dtree_decode_json(dtree *(*data), const char *json_data);
-
-
-
-/*** Some helper functions for more non-C oriented developers ***/
-
-/**
- * Shortcut function that allocates a new string node. Beware however:
- *
- * THIS FUNCTION DOES NOT RETURN WARNINGS OR ERROR CODES!
- *
- * @param string
- * @return
- */
-static dtree *dtree_alloc_literal(const char *string)
-{
-    dtree *node;
-    dtree_malloc(&node);
-    dtree_addliteral(node, string);
-    return node;
-}
-
-/**
- * Shortcut function that allocates a new numerical node.
- * Beware however:
- *
- * THIS FUNCTION DOES NOT RETURN WARNINGS OR ERROR CODES!
- *
- * @param num
- * @return
- */
-static dtree *dtree_alloc_numeral(const long num)
-{
-    dtree *node;
-    dtree_malloc(&node);
-    dtree_addnumeral(node, num);
-    return node;
-}
-
-/**
- * Shortcut function which creates two nodes as pair under a root
- * node which is returned. Beware however:
- *
- * THIS FUNCTION DOES NOT RETURN WARNINGS OR ERROR CODES!
- *
-   @param key Will be the key node
- * @param val Will be the value node
- * @return New root node with key-val children
- */
-static dtree *dtree_allocpair_new(dtree **key, dtree **val)
-{
-    dtree *root;
-    dtree_malloc(&root);
-    dtree_addpair(root, key, val);
-    return root;
-}
-
-
-/**
- * Shortcut function which allocates a list of nodes in a list under
- * a root node recursively.
- *
- * WARNING: Return value is allocated on heap. MUST FREE MANUALLY!
- * WARNING: THIS FUNCTION DOES NOT RETURN WARNINGS OR ERROR CODES!
- *
- * @param root
- * @param count
- * @return
- */
-static dtree **dtree_alloc_listlist(dtree **root, unsigned int count)
-{
-    dtree **nodes = malloc(sizeof(dtree**) * count);
-
-    dtree_malloc(root);
-
-    int i;
-    for(i = 0; i < count; i++)
-        dtree_addlist(*root, &nodes[i]);
-
-    return nodes;
-}
 
 #ifdef __cplusplus
 }

@@ -26,7 +26,7 @@ set_target_properties(libdyntree PROPERTIES PREFIX "")
 
 ################### TESTING CODE BELOW ###################
 
-set(TEST_SRC test/main.c)
+set(TEST_SRC test/main.c include/dtree/eztree.h)
 add_executable(dyntree_test ${TEST_SRC})
 
 # Library dependencies for the http extention
