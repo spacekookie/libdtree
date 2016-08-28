@@ -200,6 +200,20 @@ dt_err dtree_merge_trees(dtree *data, dtree *merge);
 dt_err dtree_search_payload(dtree *data, dtree *(*found), void *payload, dt_uni_t type);
 
 
+
+/**
+ * Much like #{dtree_search_payload} but limiting it's search to keys in a list structure of certain depth.
+ * This means that in a key-value store structure only top-level items can be searched or the entire
+ * depth of the tree (or any vaue in between)
+ *
+ * @param data
+ * @param found
+ * @param payload
+ * @param type
+ * @return
+ */
+dt_err dtree_search_keypayload(dtree *data, dtree *(*found), void *payload, dt_uni_t type, int depth);
+
 /**
  * Performs a deep copy of a data node hirarchy. Does not copy externally
  * pointed structures. Does garuantee safety of hirarchy.
@@ -225,14 +239,15 @@ dt_err dtree_copy_deep(dtree *data, dtree *(*copy));
  */
 dt_err dtree_copy(dtree *data, dtree *(*copy));
 
+
 /**
  * A retrieve function to get data back from a node that doesn't require
  * you to manually access parts of the struct.
  *
  * Needs to be provided with a reference to a pointer that can then be
  * written to. You can make the reference type specific if you know
- * what kind of data you're expecting or leave it as a void* to let
- * libdyntree do the casting for you.
+ * what kind of data you're expecting. Please however note that compiler
+ * errors might occur if you provide a wrong pointer type.
  *
  * @param data Node reference to access
  * @param val Reference pointer to write into
@@ -270,7 +285,8 @@ dt_err dtree_free_shallow(dtree *data);
 
 /**
  * Like #{dtree_free_shallow} but will also remove structs that
- * weren't allocated by libdyntree
+ * weren't allocated by libdyntree. Will throw warnings when trying
+ * to free payloads from shallow copy nodes
  *
  * @param data
  * @return

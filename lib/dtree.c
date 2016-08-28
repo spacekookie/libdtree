@@ -18,6 +18,8 @@
 
 int recursive_search(dtree**, dtree *, dtree *);
 
+void recursive_print(dtree *data, const char *offset);
+
 /******/
 
 
@@ -96,7 +98,7 @@ dt_err dtree_addpointer(dtree *data, void *ptr)
     data->payload.pointer = ptr;
     data->type = POINTER;
     data->size = sizeof(ptr);
-    data->used = sizeof(*ptr);
+    data->used = sizeof(ptr);
 
     return SUCCESS;
 }
@@ -270,8 +272,64 @@ dt_err dtree_merge_trees(dtree *data, dtree *merge)
 dt_err dtree_copy_deep(dtree *data, dtree *(*copy))
 {
     if(data == NULL) return INVALID_PARAMS;
+    dt_err err = SUCCESS;
 
-    return SUCCESS;
+    int it_type = -1;
+    dt_uni_t type = data->type;
+
+    /* Check if we're the first call */
+    if((*copy) == NULL) dtree_malloc(copy);
+    (*copy)->copy = DEEP;
+
+    switch(type) {
+        case LITERAL:
+            dtree_addliteral((*copy), data->payload.literal);
+            break;
+
+        case NUMERIC:
+            dtree_addnumeral((*copy), data->payload.numeral);
+            break;
+
+        case LIST:
+        {
+            int i;
+            int num = (int) data->used;
+
+            for(i = 0; i < num; i++) {
+                dtree *node = data->payload.recursive[i];
+
+                dtree *new;
+                dtree_addlist((*copy), &new);
+                dtree_copy_deep(node, &new);
+            }
+
+            break;
+        }
+
+        case PAIR:
+        {
+            dtree *key, *val;
+            dtree_addpair((*copy), &key, &val);
+
+            dtree *orig_key = data->payload.recursive[0];
+            dtree *orig_val = data->payload.recursive[1];
+
+            dtree_copy_deep(orig_key, &key);
+            dtree_copy_deep(orig_val, &val);
+
+            break;
+        }
+
+        case POINTER:
+            dtree_addpointer((*copy), data->payload.pointer);
+            break;
+
+        default:
+            err = INVALID_PAYLOAD;
+            break;
+    }
+
+    return err;
 }
 
 dt_err dtree_copy(dtree *data, dtree *(*copy))
@@ -375,12 +433,15 @@ void recursive_print(dtree *data, const char *offset)
         case UNSET:
             printf("[NULL]\n");
             break;
+
         case LITERAL:
             printf("%s['%s']\n", offset, data->payload.literal);
             break;
+
         case NUMERIC:
             printf("%s[%lu]\n", offset, data->payload.numeral);
             break;
+
         case PAIR:
         {
             dt_uni_t k_type = data->payload.recursive[0]->type;
@@ -452,11 +513,9 @@ void dtree_print(dtree *data)
 
 dt_err dtree_get(dtree *data, void *(*val))
 {
-    if(data->type == LITERAL) *val = (char*) data->payload.literal;
-    if(data->type == NUMERIC) *val = (int*) &data->payload.numeral;
-    if(data->type == LIST || data->type == PAIR)
-        *val = (dtree*) data->payload.recursive;
-
+    if(data->type == LITERAL) *val = data->payload.literal;
+    if(data->type == NUMERIC) *val = &data->payload.numeral;
+    if(data->type == LIST || data->type == PAIR) *val = (dtree*) data->payload.recursive;
     return SUCCESS;
 }
 
@@ -472,6 +531,8 @@ dt_err dtree_free(dtree *data)
         int i;
         dt_err err;
         for(i = 0; i < data->used; i++) {
+            if(data->copy == SHALLOW) continue;
+
             err = dtree_free(data->payload.recursive[i]);
             if(err) return err;
         }
@@ -479,7 +540,8 @@ dt_err dtree_free(dtree *data)
         free(data->payload.recursive);
 
     } else if(data->type == POINTER) {
-        if(data->payload.pointer) free(data->payload.pointer);
+        if(data->copy != SHALLOW && data->payload.pointer)
+            free(data->payload.pointer);
     }
 
     free(data);
@@ -513,15 +575,17 @@ const char *dtree_dtype(dtree *data)
 {
     switch(data->type) {
         case LITERAL:       return "Literal";
-        case NUMERIC:       return "Numeral";
-        case LIST:     return "Recursive";
+        case NUMERIC:       return "Numeric";
+        case LIST:          return "List";
         case PAIR:          return "Pair";
         case POINTER:       return "Pointer";
         default:            return "Unknown";
     }
 }
 
+
 /**************** PRIVATE UTILITY FUNCTIONS ******************/
+
 
 /**
  * Steps down the recursive hirarchy of a dyntree node to
