@@ -1,87 +1,66 @@
-//
-// Created by spacekookie on 28/08/16.
-//
-
 #ifndef LIBDYNTREE_EZTREE_H
 #define LIBDYNTREE_EZTREE_H
 
 #include <dtree/dtree.h>
 #include <stdlib.h>
 
+/* Also make sure we're _always_ interpreted as a C file */
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#define EZTREE_LITERAL   0xA
+#define EZTREE_NUMERIC   0xB
+#define EZTREE_NESTED    0xC
+
+
 /**
- * Shortcut function that allocates a new string node. Beware however:
- *
- * THIS FUNCTION DOES NOT RETURN WARNINGS OR ERROR CODES!
+ * An quick create function for a literal node
  *
  * @param string
  * @return
  */
-static dtree *dtree_alloc_literal(const char *string)
-{
-    dtree *node;
-    dtree_malloc(&node);
-    dtree_addliteral(node, string);
-    return node;
-}
+dtree *eztree_new_literal(const char *string);
+
 
 /**
- * Shortcut function that allocates a new numerical node.
- * Beware however:
- *
- * THIS FUNCTION DOES NOT RETURN WARNINGS OR ERROR CODES!
- *
+ * A quick create function for a number (numeric) node
  * @param num
  * @return
  */
-static dtree *dtree_alloc_numeral(const long num)
-{
-    dtree *node;
-    dtree_malloc(&node);
-    dtree_addnumeral(node, num);
-    return node;
-}
-
-/**
- * Shortcut function which creates two nodes as pair under a root
- * node which is returned. Beware however:
- *
- * THIS FUNCTION DOES NOT RETURN WARNINGS OR ERROR CODES!
- *
-   @param key Will be the key node
- * @param val Will be the value node
- * @return New root node with key-val children
- */
-static dtree *dtree_allocpair_new(dtree **key, dtree **val)
-{
-    dtree *root;
-    dtree_malloc(&root);
-    dtree_addpair(root, key, val);
-    return root;
-}
+dtree *eztree_new_numeric(const long num);
 
 
 /**
- * Shortcut function which allocates a list of nodes in a list under
- * a root node listly.
+ * A quick create function for a string key and an arbitrary type value.
+ * The value needs to be marked properly or errors might occur.
  *
- * WARNING: Return value is allocated on heap. MUST FREE MANUALLY!
- * WARNING: THIS FUNCTION DOES NOT RETURN WARNINGS OR ERROR CODES!
+ * Nested nodes can be passed as values but need to be declared in before. This means
+ * that the tree needs to be built bottom-up.
  *
- * @param root
- * @param count
+ * @param key
+ * @param val
+ * @param type
  * @return
  */
-static dtree **dtree_alloc_listlist(dtree **root, unsigned int count)
-{
-    dtree **nodes = malloc(sizeof(dtree**) * count);
+dtree *eztree_new_pair(const char *key, void *val, short type);
 
-    dtree_malloc(root);
 
-    int i;
-    for(i = 0; i < count; i++)
-        dtree_addlist(*root, &nodes[i]);
+/**
+ * A quick create function for a list node with a certain number of children
+ * ready to go. Children will be placed into a bufer that needs to be provided
+ * and the new parent will be returned from the function.
+ *
+ * Provided size needs to be size of the child-buffer or else errors might occur!
+ *
+ * @param list
+ * @param size
+ * @return
+ */
+dtree *eztree_new_list(dtree **list, size_t size);
 
-    return nodes;
+#ifdef __cplusplus
 }
+#endif
 
 #endif //LIBDYNTREE_EZTREE_H

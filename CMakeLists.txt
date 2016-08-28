@@ -12,7 +12,10 @@ set(CMAKE_BUILD_TYPE Debug)
 
 # Create our project for further reference
 project(libdyntree)
-set(DYN_TREE_SRC lib/dtree.c lib/dyn_utils.c)
+set(DYN_TREE_SRC
+        lib/dtree.c
+        lib/eztree.c
+        lib/dyn_utils.c)
 
 # Define our library in cmake
 add_library(libdyntree SHARED ${DYN_TREE_SRC})
@@ -26,7 +29,7 @@ set_target_properties(libdyntree PROPERTIES PREFIX "")
 
 ################### TESTING CODE BELOW ###################
 
-set(TEST_SRC test/main.c include/dtree/eztree.h)
+set(TEST_SRC test/main.c)
 add_executable(dyntree_test ${TEST_SRC})
 
 # Library dependencies for the http extention
