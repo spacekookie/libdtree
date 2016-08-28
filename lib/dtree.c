@@ -41,6 +41,7 @@ dt_err dtree_resettype(dtree *data)
 {
     if(data->type == LITERAL) {
         if(data->payload.literal) free(data->payload.literal);
+
     } else if(data->type == LIST || data->type == PAIR) {
 
         /* Iterate over all children and clear them */
@@ -48,6 +49,7 @@ dt_err dtree_resettype(dtree *data)
         dt_err err;
         for(i = 0; i < data->size; i++) {
             err = dtree_free(data->payload.list[i]);
+            memset(data->payload.list[i], 0, sizeof(data->payload.list[i]));
             if(err) return err;
         }
     }
@@ -523,6 +525,7 @@ dt_err dtree_get(dtree *data, void *(*val))
 dt_err dtree_free(dtree *data)
 {
     if(data == NULL) return SUCCESS;
+    if(data->copy == SHALLOW) return NODE_NOT_ORIGINAL;
 
     if(data->type == LITERAL) {
         if(data->payload.literal) free(data->payload.literal);
@@ -531,7 +534,6 @@ dt_err dtree_free(dtree *data)
         int i;
         dt_err err;
         for(i = 0; i < data->used; i++) {
-            if(data->copy == SHALLOW) continue;
 
             err = dtree_free(data->payload.list[i]);
             if(err) return err;
