@@ -17,9 +17,9 @@ int human(short );
 
 void append(char *, char *);
 
-int parse_key_value(dtree *, char *, short );
+int parse_key_value(dtree *, char *);
 
-const char *parse_value_list(dtree *, char *, char *, short , int , int );
+const char *parse_value_list(dtree *, char *, char *, int );
 
 // Functions required by decoder
 
@@ -57,19 +57,17 @@ dt_err dtree_encode_json(dtree *data, char *json_data)
 {
     if(data == NULL) return INVALID_PARAMS;
 
-    json_len = 0;
-
     /* Check if setting is valid */
-    switch(data->encset) {
-        case DYNTREE_JSON_MINIFIED:
-        case DYNTREE_JSON_HUMAN:
-            break;
-
-        default: return INVALID_PARAMS;
-    }
+    //    switch(data->encset) {
+    //        case DYNTREE_JSON_MINIFIED:
+    //        case DYNTREE_JSON_HUMAN:
+    //            break;
+    //
+    //        default: return INVALID_PARAMS;
+    //    }
 
     /* Assume mode for all children */
-    short mode = data->encset;
+    json_len = 0;
 
     char *open = "{";
     char *close = "}";
@@ -89,13 +87,13 @@ dt_err dtree_encode_json(dtree *data, char *json_data)
                 dtree *val = child->payload.list[1];
 
                 char kkey[1024];
-                parse_key_value(key, kkey, mode);;
+                parse_key_value(key, kkey);
                 fflush(stdout);
                 append(json_data, kkey);
                 memset(kkey, 0, 1024);
 
                 char vval[1024];
-                parse_value_list(val, vval, json_data, mode, 1, (i == data->used - 1) ? TRUE : FALSE);
+                parse_value_list(val, vval, json_data, (i == data->used - 1) ? TRUE : FALSE);
                 fflush(stdout);
 
                 append(json_data, vval);
@@ -110,7 +108,6 @@ dt_err dtree_encode_json(dtree *data, char *json_data)
     } else {
         return INVALID_PAYLOAD;
     }
-    fflush(stdout);
 
     /* Add closing } and null terminator to finish */
     append(json_data, close);
@@ -128,11 +125,6 @@ dt_err dtree_decode_json(dtree *(*data), const char *jd)
     dtree *parents[32]; // Only support 32 deep for now
     memset(parents, 0, sizeof(dtree*) * 32);
 
-
-#define IN_KEY      5
-#define IN_VAL      6
-#define IN_HASH     7
-#define IN_LIST     8
 #define IN_STRING   9
 #define NEUTRAL     10
 
@@ -145,7 +137,6 @@ dt_err dtree_decode_json(dtree *(*data), const char *jd)
     memset(curr_key, 0, 512);
     memset(curr_str, 0, 512);
     memset(curr_num, 0, 512);
-    int mode = 0;
 
     /* Get the first character of our json string */
     int jd_len = (int) REAL_STRLEN(jd);
@@ -213,13 +204,11 @@ dt_err dtree_decode_json(dtree *(*data), const char *jd)
             case '"':
             {
                 in_str = (in_str) ? FALSE : TRUE;
-                mode = (in_str) ? IN_STRING : NEUTRAL; // TODO: Work with the mode ?
                 break;
             }
 
             case ',':
             {
-                mode = NEUTRAL;
                 dtree *key, *val;
                 dtree *rec_entry;
 
@@ -288,12 +277,7 @@ dt_err dtree_decode_json(dtree *(*data), const char *jd)
 
 /**************** ENCODER UTILITY FUNCTIONS ******************/
 
-int human(short mode) {
-    if(mode == DYNTREE_JSON_HUMAN) return 1;
-    return 0;
-}
-
-int parse_key_value(dtree *key, char *buffer, short mode)
+int parse_key_value(dtree *key, char *buffer)
 {
     if(key->type != LITERAL) 5;
 
@@ -310,22 +294,12 @@ int parse_key_value(dtree *key, char *buffer, short mode)
     return 0;
 }
 
-const char *parse_value_list(dtree *value, char *buffer, char *global, short mode, int depth, int last)
+const char *parse_value_list(dtree *value, char *buffer, char *global, int last)
 {
     if(value == NULL) return "[ERROR]";
 
     /* The new offset we need (in \t) */
-
-    int no_len = depth + 1;
-    char new_offset[no_len];
     int i;
-    for(i = 0; i < depth + 1; i++)
-        strcat(new_offset, "\t");
-
-    int base;
-//    if(human(mode)) base = 4 + no_len; // "<key>"
-    base = 2;
-    if(!last) base++;
 
     switch(value->type) {
         case LITERAL:
@@ -345,7 +319,6 @@ const char *parse_value_list(dtree *value, char *buffer, char *global, short mod
         {
             char str[15];
             sprintf(str, "%ld", value->payload.numeral);
-            int val_len = (int) strlen((char*) str);
 
             strcat(buffer, str);
             if(last == 0) strcat(buffer, ",");
@@ -368,7 +341,7 @@ const char *parse_value_list(dtree *value, char *buffer, char *global, short mod
                         dtree *child = value->payload.list[j];
 
                         char vall[1024];
-                        parse_value_list(child, vall, global, mode, depth + 1, (i == value->used - 1) ? TRUE : FALSE);
+                        parse_value_list(child, vall, global, (j == value->used - 1) ? TRUE : FALSE);
                         fflush(stdout);
                     }
 
@@ -376,7 +349,6 @@ const char *parse_value_list(dtree *value, char *buffer, char *global, short mod
 
                 } else if(test == PAIR) {
                     fflush(stdout);
-//                    *global = realloc(*global, sizeof(char) * strlen(*global) + 1);
                     append(global, "{");
 
                     int j;
@@ -389,22 +361,19 @@ const char *parse_value_list(dtree *value, char *buffer, char *global, short mod
 
                             char kkey[1024];
 
-                            parse_key_value(key, kkey, mode);
+                            parse_key_value(key, kkey);
                             fflush(stdout);
-//                            *global = realloc(*global, sizeof(char) * strlen(*global) + strlen(kkey));
                             append(global, kkey);
 
                             char vval[1024];
-                            parse_value_list(val, vval, global, mode, 1, (j == child->used - 1) ? TRUE : FALSE);
+                            parse_value_list(val, vval, global, (j == child->used - 1) ? TRUE : FALSE);
                             fflush(stdout);
 
-//                            *global = realloc(*global, sizeof(char) * strlen(*global) + strlen(vval));
                             append(global, vval);
                         }
                     }
 
                     fflush(stdout);
-//                    *global = realloc(*global, sizeof(char) * strlen(*global) + 1);
                     append(global, "}");
                 }
 
