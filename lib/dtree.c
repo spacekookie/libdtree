@@ -49,7 +49,6 @@ dt_err dtree_resettype(dtree *data)
         dt_err err;
         for(i = 0; i < data->size; i++) {
             err = dtree_free(data->payload.list[i]);
-            memset(data->payload.list[i], 0, sizeof(data->payload.list[i]));
             if(err) return err;
         }
     }
@@ -59,6 +58,9 @@ dt_err dtree_resettype(dtree *data)
     data->encset = DYNTREE_ENCODE_NONE;
     data->size = 0;
     data->used = 0;
+
+    /* Forcibly clean union memory to avoid bleeding data */
+    memset(&data->payload, 0, sizeof(data->payload));
 
     return SUCCESS;
 }
@@ -146,7 +148,7 @@ dt_err dtree_addlist(dtree *data, dtree *(*new_data))
 
     /* This means the data object is new */
     } else {
-        dtree **tmp = (dtree**) malloc(sizeof(dtree*) * data->size);
+        dtree **tmp = (dtree**) malloc(sizeof(dtree*) * RDB_REC_DEF_SIZE);
         data->payload.list = tmp;
         data->type = LIST;
         data->used = 0;
@@ -157,8 +159,7 @@ dt_err dtree_addlist(dtree *data, dtree *(*new_data))
     if(err) return err;
 
     /* Reference the slot, assign it, then move our ctr */
-    data->payload.list[data->used] = *new_data;
-    data->used++;
+    data->payload.list[data->used++] = *new_data;
 
     return SUCCESS;
 }
