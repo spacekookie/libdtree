@@ -427,6 +427,81 @@ dt_err dtree_search_payload(dtree *data, dtree *(*found), void *payload, dt_uni_
     return (*found == NULL) ? NODE_NOT_FOUND : SUCCESS;
 }
 
+static int reached = 0;
+dt_err dtree_search_keypayload(dtree *data, dtree *(*found), void *payload, dt_uni_t type, int depth)
+{
+    if(data == NULL) return INVALID_PARAMS;
+    if(reached++ >= depth) return QUERY_TOO_DEEP;
+
+    /* Make sure our pointer is clean */
+    *found = NULL;
+
+    /* We can only search LISTed values or PAIRs */
+    if(data->type == PAIR) {
+        dtree *key = data->payload.list[0];
+
+        dt_uni_t tt;
+        int hit = -1;
+        if(strcmp(key->payload.literal, (char*) payload) == 0) {
+            tt = LITERAL;
+            hit = 0;
+        }
+        if(key->payload.numeral == (long) payload) {
+            tt = NUMERIC;
+            hit = 0;
+        }
+
+        if(hit == 0) *found = data->payload.list[1]:
+
+    } else if(data->type == LIST) {
+
+        int i;
+        for(i = 0; i < data->used; i++) {
+            dtree_search_keypayload(data->payload.list[i], found, payload, type, depth);
+        }
+
+    } else {
+
+
+    }
+
+    if(data->type == LIST|| data->type == PAIR) {
+
+        int i;
+        for(i = 0; i < data->used; i++) {
+            dt_err err = dtree_search_payload(data->payload.list[i], found, payload, type);
+            if(err == SUCCESS) return SUCCESS;
+        }
+
+    } else {
+
+        /* Check the type aligns */
+        if(data->type != type) return NODE_NOT_FOUND;
+
+        switch(type) {
+            case LITERAL:
+                if(strcmp(data->payload.literal, (char*) payload) == 0)
+                    *found = data;
+                break;
+
+            case NUMERIC:
+                if(data->payload.numeral == (long) payload)
+                    *found = data;
+                break;
+
+            case POINTER:
+                if(data->payload.pointer == payload)
+                    *found = data;
+                break;
+
+            default: return NODE_NOT_FOUND;
+        }
+
+    }
+
+    return (*found == NULL) ? NODE_NOT_FOUND : SUCCESS;
+}
+
 
 void list_print(dtree *data, const char *offset)
 {
