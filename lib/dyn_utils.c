@@ -153,8 +153,7 @@ dt_err dtree_decode_json(dtree *(*data), const char *jd)
                 dtree_malloc(&new_root);
 
                 if(ctr < 0) {
-                    parents[0] = new_root;
-                    ctr = 0;
+                    parents[ctr = 0] = new_root;
                 } else {
                     dtree_addlist(parents[ctr], &new_root);
                     parents[++ctr] = new_root;
