@@ -69,6 +69,7 @@ typedef enum dt_err {
     DATA_NOT_RELATED,       // Tried to split non-related trees
     NODE_NOT_FOUND,         // The sought after node was not found
     NODE_NOT_ORIGINAL,      // Tried to free a node which was a shallow copy
+    QUERY_TOO_DEEP,
 
 } dt_err;
 
