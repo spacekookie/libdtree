@@ -451,7 +451,7 @@ dt_err dtree_search_keypayload(dtree *data, dtree *(*found), void *payload, dt_u
             hit = 0;
         }
 
-        if(hit == 0) *found = data->payload.list[1]:
+        if(hit == 0) *found = data->payload.list[1];
 
     } else if(data->type == LIST) {
 
