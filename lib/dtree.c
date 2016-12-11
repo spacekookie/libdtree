@@ -343,7 +343,7 @@ dt_err dtree_parent(dtree *root, dtree *data, dtree **parent)
     /* Blank the search pointer for easy error checking */
     (*parent) = NULL;
 
-    switch(data->type) {
+    switch(root->type) {
 
         /* Dead-end data stores automatically return @{NODE_NOT_FOUND} */
         case POINTER:
