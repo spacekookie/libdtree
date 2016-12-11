@@ -1,129 +1,207 @@
 #include <dtree/dtree.h>
 #include <stdio.h>
+#include <malloc.h>
 #include <stdlib.h>
 
-void pk_string_trim(char *src, char *dst);
+#include "jsmn.h"
 
-dt_err dtree_decode_json(dtree *(*data), const char *json_data)
+
+#define DTREE_TOK_BOOLEAN   (1 << 1)
+#define DTREE_TOK_NUMERICAL (1 << 2)
+#define DTREE_TOK_LITERAL   (1 << 3)
+
+
+char *tok_to_str(jsmntype_t *tok)
 {
-    enum parse_state {
-        VALUE, HASH, LIST, WAITING
-    };
-
-#define BUF_SIZE 256
-
-    /* Save some space for a token */
-    const char *delims = ",:";
-
-    char *parse;
-    char curr_key[BUF_SIZE];
-    char curr_val[BUF_SIZE];
-    dtree *root, *curr_root;
-    enum parse_state state = WAITING;
-
-    /* Prepare environment for parsing */
-    char json_buf[REAL_STRLEN(json_data)];
-    strcpy(json_buf, json_data);
-
-    /* Setup root dtree node */
-    dtree_malloc(&root);
-    curr_root = root;
-
-    /* Read in the first token */
-    parse = strtok(json_buf, delims);
-
-    while(parse != NULL) {
-
-        char tok[strlen(parse) + 1];
-        memset(tok, 0, strlen(parse) + 1);
-
-        pk_string_trim(parse, tok);
-
-        /* Open a new hash context */
-        if(tok[0] == '{') {
-
-            dtree *new_root;
-            dtree_addlist(curr_root, &new_root);
-
-            curr_root = new_root;
-
-            printf("Creating new hash context...\n");
-            state = HASH;
-        }
-
-        /* Open a new list context - finishing a PAIR - Back to waiting */
-        if(tok[0] == '[') {
-            printf("Creating new hash context...\n");
-            state = LIST;
-        }
-
-        /* If we're in a hash & waiting for a key */
-        if(state == HASH) {
-            if(tok[0] == '{')   strcpy(curr_key, tok + 1);
-            else                strcpy(curr_key, tok);
-
-            printf("Current Key: %s\n", curr_key);
-            state = VALUE;
-            goto END;
-        }
-
-        /* We already had a key - finishing up the pair */
-        if(state == VALUE) {
-            strcpy(curr_val, tok);
-            printf("Current Val: %s\n", curr_val);
-
-            /* Copy pair into dtree structure */
-            dtree *parent, *key, *val;
-            dtree_addlist(curr_root, &parent);
-
-            /* Make the "parent" node into the pair parent */
-            dtree_addpair(parent, &key, &val);
-            dtree_addliteral(key, curr_key);
-            dtree_addliteral(val, curr_val);
-
-            /* Add the parent */
-
-            /* Blank current pair data */
-            memset(curr_key, 0, BUF_SIZE);
-            memset(curr_val, 0, BUF_SIZE);
-
-            state = HASH;
-            goto END;
-        }
-
-        if(state == LIST) {
-            dtree *child;
-            dtree_addlist(curr_root, &child);
-            dtree_addliteral(child, tok);
-
-            size_t chs = strlen(tok);
-            dtree *parent;
-
-            dtree_parent(root, curr_root, &parent);
-            if(tok[chs] == ']') {
-                curr_root = parent;
-                state = HASH;
-            }
-        }
-
-        printf("      Recognised token: %s\n", tok);
-    END:
-        parse = strtok(NULL, delims);
+    switch(*tok) {
+        case JSMN_UNDEFINED: return "UNDEFINED";
+        case JSMN_OBJECT: return "OBJECT";
+        case JSMN_ARRAY: return "ARRAY";
+        case JSMN_STRING: return "STRING";
+        case JSMN_PRIMITIVE: return "PRIMITIVE";
+        default: return "UNKNOWN";
     }
-
-    return SUCCESS;
 }
 
 
-/************************************************************/
-
-void pk_string_trim(char *src, char *dst)
+int digest_payload(const char *token)
 {
-    int s, d=0;
-    for (s=0; src[s] != 0; s++)
-        if (src[s] != ' ') {
-            dst[d] = src[s];
-            d++;
+    char* end;
+    size_t len = strlen(token);
+
+    if(len == strlen("true") || len == strlen("false"))
+        if(strcmp(token, "true") == 0 || strcmp(token, "false") == 0)
+            return DTREE_TOK_BOOLEAN;
+
+    /* It could still be a number! */
+    strtol(token, &end, 10);
+    if (!*end) return DTREE_TOK_NUMERICAL;
+
+    return DTREE_TOK_LITERAL;
+}
+
+
+dt_err dtree_decode_json(dtree *(*data), const char *json_data, size_t len)
+{
+    jsmn_parser parse;
+    jsmn_init(&parse);
+
+    // FIXME: Variable amount of tokens?
+    jsmntok_t *tokens = malloc(sizeof(jsmntok_t) * len);
+    memset(tokens, 0, sizeof(jsmntok_t) * len);
+
+    int ret = jsmn_parse(&parse, json_data, strlen(json_data), tokens, sizeof(tokens) / sizeof(tokens[0]));
+
+    jsmntok_t tok;
+    unsigned int idx = 0;
+
+    /** Prepare dtree nodes */
+    dtree *root, *curr;
+    dtree_malloc(&root);
+    curr = root;
+
+    struct bounds {
+        int low, high;
+    };
+
+    struct pair {
+        short   state;
+#define TOK_PAIR_KEYED  1
+#define TOK_PAIR_VALUED 2
+        char    key[1024];
+        union   value {
+            char            string[1024];
+            unsigned long   num;
+        } value;
+    };
+
+    /* Save some space to store token bounds */
+    struct bounds *bounds = malloc(sizeof(struct bounds) * len);
+    memset(bounds, 0, sizeof(struct bounds) * len);
+    int focused = -1;
+
+    struct pair c_pair;
+    memset(&c_pair, 0, sizeof(struct pair));
+
+    while(tok = tokens[idx++], tok.type != NULL) {
+
+        size_t tok_len = (size_t) tok.end - tok.start;
+        char token[tok_len];
+        memset(token, 0, tok_len);
+        memcpy(token, json_data + tok.start, tok_len);
+
+        /** Check if we need to move the boundry scope (again) */
+        if(focused > 0 && tok.end >= bounds[focused].high) {
+            focused--;
+
+            /* Because of how our root node is a VALUE node, we need the parents parent */
+            dtree *parent, *pair_parent;
+            dtree_parent(root, curr, &parent);
+            dtree_parent(root, parent, &pair_parent);
+
+            /* Assign the new root node - old scope restored */
+            curr = pair_parent;
         }
-    dst[d] = 0;
+
+        switch(tok.type) {
+
+             /**
+             * When we encounter a new json object, shift our "focus" over by one so we can
+             * record in what range this object is going to accumilate tokens.
+             *
+             * We then create a new child node under the current root node and switch the
+             * curr root pointer over to that child.
+             *
+             * When we reach the end of the token scope, we need to re-reference the parent as
+             * current root and switch over our boundry scope as well. This is done before the
+             * parsing switch statement.
+             */
+            case JSMN_OBJECT:
+            {
+                focused++;
+                bounds[focused].low = tok.start;
+                bounds[focused].high = tok.end;
+
+                /**
+                 * Most of the time, we will create a new object under the key of
+                 * a pair. This is the case, when the c_pair state buffer has been
+                 * set to KEYED. In this case we allocate a new pair node for key
+                 * and value and set that value to the new root.
+                 */
+                if(c_pair.state == TOK_PAIR_KEYED) {
+
+                    /* Create pair nodes & new_root which becomes curr */
+                    dtree *pair, *key, *val;
+                    dtree_addlist(curr, &pair);
+                    dtree_addpair(pair, &key, &val);
+
+                    /* Assign key and new_root as a value of the pair */
+                    dtree_addliteral(key, c_pair.key);
+
+                    /* Move curr root pointer */
+                    curr = val;
+
+                    /* Blank c_pair data for next tokens */
+                    memset(&c_pair, 0, sizeof(struct pair));
+
+                }
+
+                /* Skip to next token */
+                continue;
+            }
+
+            case JSMN_STRING:
+            {
+                /**
+                 * Here we need to check if we are adding a string as a key
+                 * or as a value. This is simply done by checking for the existance
+                 * of a key in the c_pair (current pair) variable.
+                 *
+                 * We know the token positions so we can manualy copy from the json stream
+                 */
+                 if(c_pair.state == 0) {
+                     memcpy(c_pair.key, json_data + tok.start, (size_t) tok.end - tok.start);
+                     c_pair.state = TOK_PAIR_KEYED;
+
+                 } else if(c_pair.state == TOK_PAIR_KEYED){
+
+                     /** Create a PAIR node under current root */
+                     dtree *pair, *key, *val;
+                     dtree_addlist(curr, &pair);
+                     dtree_addpair(pair, &key, &val);
+
+                     /* Key is always literal */
+                     dtree_addliteral(key, c_pair.key);
+
+                     /* Parse payload and asign to value node */
+                     switch(digest_payload(token)) {
+                         case DTREE_TOK_LITERAL:
+                             dtree_addliteral(val, token);
+                             break;
+
+                         case DTREE_TOK_NUMERICAL:
+                             dtree_addnumeral(val, atol(token));
+                             break;
+
+                         default: continue;
+                     }
+
+                     /* Blank c_pair data for next tokens */
+                     memset(&c_pair, 0, sizeof(struct pair));
+                 }
+
+                /* Skip to next token */
+                continue;
+            }
+
+
+
+            default:
+                continue;
+        }
+    }
+
+    /* Switch over data pointer and return */
+    (*data) = root;
+    return SUCCESS;
 }
