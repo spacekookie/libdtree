@@ -15,7 +15,7 @@ project(libdyntree)
 set(DYN_TREE_SRC
         lib/dtree.c
         lib/eztree.c
-        lib/dyn_utils.c)
+        lib/dtree_utils.c)
 
 # Define our library in cmake
 add_library(libdyntree SHARED ${DYN_TREE_SRC})

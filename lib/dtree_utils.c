@@ -2,407 +2,128 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+void pk_string_trim(char *src, char *dst);
 
-/*** Forward declared functions ***/
-
-#define TRUE    1
-#define FALSE   0
-
-static int json_len = 0;
-
-/************* Forward Function Declarations *************/
-
-// Functions required by encoder
-int human(short );
-
-void append(char *, char *);
-
-int parse_key_value(dtree *, char *);
-
-const char *parse_value_list(dtree *, char *, char *, int );
-
-// Functions required by decoder
-
-void append_char(char *, int *, char );
-
-long to_long(char *);
-
-/*********************************************************/
-
-const char *rdb_error_getmsg(dt_err *e)
+dt_err dtree_decode_json(dtree *(*data), const char *json_data)
 {
+    enum parse_state {
+        VALUE, HASH, LIST, WAITING
+    };
 
-}
+#define BUF_SIZE 256
 
-dt_err dtree_encode_set(dtree *data, short setting)
-{
-    if(data == NULL) return INVALID_PARAMS;
+    /* Save some space for a token */
+    const char *delims = ",:";
 
-    /* Check if setting is valid */
-    switch(setting) {
-        case DYNTREE_ENCODE_NONE:
-        case DYNTREE_JSON_MINIFIED:
-        case DYNTREE_JSON_HUMAN:
-            break;
+    char *parse;
+    char curr_key[BUF_SIZE];
+    char curr_val[BUF_SIZE];
+    dtree *root, *curr_root;
+    enum parse_state state = WAITING;
 
-        default: return INVALID_PARAMS;
-    }
+    /* Prepare environment for parsing */
+    char json_buf[REAL_STRLEN(json_data)];
+    strcpy(json_buf, json_data);
 
-    data->encset = setting;
-    return SUCCESS;
-}
+    /* Setup root dtree node */
+    dtree_malloc(&root);
+    curr_root = root;
 
+    /* Read in the first token */
+    parse = strtok(json_buf, delims);
 
-dt_err dtree_encode_json(dtree *data, char *json_data)
-{
-    if(data == NULL) return INVALID_PARAMS;
+    while(parse != NULL) {
 
-    /* Check if setting is valid */
-    //    switch(data->encset) {
-    //        case DYNTREE_JSON_MINIFIED:
-    //        case DYNTREE_JSON_HUMAN:
-    //            break;
-    //
-    //        default: return INVALID_PARAMS;
-    //    }
+        char tok[strlen(parse) + 1];
+        memset(tok, 0, strlen(parse) + 1);
 
-    /* Assume mode for all children */
-    json_len = 0;
+        pk_string_trim(parse, tok);
 
-    char *open = "{";
-    char *close = "}";
+        /* Open a new hash context */
+        if(tok[0] == '{') {
 
-    if(data->type == LIST) {
+            dtree *new_root;
+            dtree_addlist(curr_root, &new_root);
 
-        fflush(stdout);
-        append(json_data, open);
+            curr_root = new_root;
 
-        /* Iterate through all it's children */
-        int i;
-        for(i = 0; i < data->used; i++) {
-            dtree *child = data->payload.list[i];
+            printf("Creating new hash context...\n");
+            state = HASH;
+        }
 
-            if(child->type == PAIR) {
-                dtree *key = child->payload.list[0];
-                dtree *val = child->payload.list[1];
+        /* Open a new list context - finishing a PAIR - Back to waiting */
+        if(tok[0] == '[') {
+            printf("Creating new hash context...\n");
+            state = LIST;
+        }
 
-                char kkey[1024];
-                parse_key_value(key, kkey);
-                fflush(stdout);
-                append(json_data, kkey);
-                memset(kkey, 0, 1024);
+        /* If we're in a hash & waiting for a key */
+        if(state == HASH) {
+            if(tok[0] == '{')   strcpy(curr_key, tok + 1);
+            else                strcpy(curr_key, tok);
 
-                char vval[1024];
-                parse_value_list(val, vval, json_data, (i == data->used - 1) ? TRUE : FALSE);
-                fflush(stdout);
+            printf("Current Key: %s\n", curr_key);
+            state = VALUE;
+            goto END;
+        }
 
-                append(json_data, vval);
-                memset(vval, 0, 1024);
+        /* We already had a key - finishing up the pair */
+        if(state == VALUE) {
+            strcpy(curr_val, tok);
+            printf("Current Val: %s\n", curr_val);
 
-            } else if(child->type == LIST) {
-                dt_err err = dtree_encode_json(child, json_data);
-                if(err) return err;
+            /* Copy pair into dtree structure */
+            dtree *parent, *key, *val;
+            dtree_addlist(curr_root, &parent);
+
+            /* Make the "parent" node into the pair parent */
+            dtree_addpair(parent, &key, &val);
+            dtree_addliteral(key, curr_key);
+            dtree_addliteral(val, curr_val);
+
+            /* Add the parent */
+
+            /* Blank current pair data */
+            memset(curr_key, 0, BUF_SIZE);
+            memset(curr_val, 0, BUF_SIZE);
+
+            state = HASH;
+            goto END;
+        }
+
+        if(state == LIST) {
+            dtree *child;
+            dtree_addlist(curr_root, &child);
+            dtree_addliteral(child, tok);
+
+            size_t chs = strlen(tok);
+            dtree *parent;
+
+            dtree_parent(root, curr_root, &parent);
+            if(tok[chs] == ']') {
+                curr_root = parent;
+                state = HASH;
             }
         }
 
-    } else {
-        return INVALID_PAYLOAD;
+        printf("      Recognised token: %s\n", tok);
+    END:
+        parse = strtok(NULL, delims);
     }
-
-    /* Add closing } and null terminator to finish */
-    append(json_data, close);
-    append(json_data, "\0");
-
-    return SUCCESS;
-}
-
-
-dt_err dtree_decode_json(dtree *(*data), const char *jd)
-{
-    /* Always create an empty root node */
-
-    int ctr = -1;
-    dtree *parents[32]; // Only support 32 deep for now
-    memset(parents, 0, sizeof(dtree*) * 32);
-
-#define IN_STRING   9
-#define NEUTRAL     10
-
-    /** Parse stack */
-    int in_str = 0;
-    char curr_key[512]; int key_inx = 0;
-    char curr_str[512]; int str_inx = 0;
-    char curr_num[512]; int num_inx = 0;
-
-    memset(curr_key, 0, 512);
-    memset(curr_str, 0, 512);
-    memset(curr_num, 0, 512);
-
-    /* Get the first character of our json string */
-    int jd_len = (int) REAL_STRLEN(jd);
-    int pos = 0;
-    char curr;
-
-    for (; pos < jd_len && jd[pos] != '\0'; pos++) {
-        curr = jd[pos];
-
-        switch(curr) {
-            case '{':
-            {
-                dtree *new_root;
-                dtree_malloc(&new_root);
-
-                if(ctr < 0) {
-                    parents[ctr = 0] = new_root;
-                } else {
-                    dtree_addlist(parents[ctr], &new_root);
-                    parents[++ctr] = new_root;
-                }
-
-                break;
-            }
-            case '[':
-            {
-                if(in_str) break; // Ignore if we're in a string
-
-                dtree *new_root;
-                dtree_addlist(parents[ctr], &new_root);
-                parents[++ctr] = new_root;
-                break;
-            }
-
-            case '}':
-            case ']':
-            {
-                if(in_str) {
-                } else {
-                    if(curr_key[0] != '\0') {
-
-                        dtree *key, *val;
-                        dtree *rec_entry;
-
-                        dtree_addlist(parents[ctr], &rec_entry);
-                        dtree_addpair(rec_entry, &key, &val);
-                        dtree_addliteral(key, curr_key);
-                        dtree_addliteral(val, curr_str);
-
-                        /* Clear the pointer reference */
-                        rec_entry = key = val = NULL;
-
-                        memset(curr_key, 0, (size_t) key_inx);
-                        memset(curr_str, 0, (size_t) str_inx);
-                        key_inx = 0;
-                        str_inx = 0;
-                    }
-
-                    if(ctr > 0) parents[ctr--] = NULL; // Remove current parent again
-                }
-                break;
-            }
-
-            case '"':
-            {
-                in_str = (in_str) ? FALSE : TRUE;
-                break;
-            }
-
-            case ',':
-            {
-                dtree *key, *val;
-                dtree *rec_entry;
-
-                /* Add a new pair as a list item */
-                dtree_addlist(parents[ctr], &rec_entry);
-                dtree_addpair(rec_entry, &key, &val);
-                dtree_addliteral(key, curr_key);
-
-                /* Either make it a literal or number node */
-                if(num_inx > 0)
-                    dtree_addnumeral(val, to_long(curr_num));
-                else
-                    dtree_addliteral(val, curr_str);
-
-                /* Clear the pointer reference */
-                rec_entry = key = val = NULL;
-
-                /* Reset the key/ value status */
-                memset(curr_key, 0, (size_t) key_inx);
-                memset(curr_str, 0, (size_t) str_inx);
-                memset(curr_num, 0, (size_t) num_inx);
-                key_inx = 0;
-                str_inx = 0;
-                num_inx = 0;
-                break;
-            }
-
-            case ':':
-            {
-                if(in_str) break; // Ignore if we're in a string
-
-                // End a key
-                strcpy(curr_key, curr_str);
-                memset(curr_str, 0, (size_t) str_inx);
-                key_inx = str_inx;
-                str_inx = 0;
-                break;
-            }
-
-            case '0': case '1': case '2': case '3': case '4':
-            case '5': case '6': case '7': case '8': case '9':
-            {
-                if(in_str) {
-                    append_char(curr_str, &str_inx, curr);
-                } else {
-                    append_char(curr_num, &num_inx, curr);
-                }
-                break;
-            }
-
-            default:
-            {
-                if(in_str) append_char(curr_str, &str_inx, curr);
-                break;
-            }
-        }
-    }
-
-    /* Allocate our first node */
-    *data = parents[0];
-    dtree_print(*data);
 
     return SUCCESS;
 }
 
 
-/**************** ENCODER UTILITY FUNCTIONS ******************/
+/************************************************************/
 
-int parse_key_value(dtree *key, char *buffer)
+void pk_string_trim(char *src, char *dst)
 {
-    if(key->type != LITERAL) 5;
-
-    size_t key_len = key->used;
-    int base = 3;
-
-    /* Make an array that will survive function switch */
-    char lit[key_len + base + 1];
-
-    strcpy(buffer, "\"");
-    strcat(buffer, key->payload.literal);
-    strcat(buffer, "\":");
-    strcat(buffer, "\0");
-    return 0;
-}
-
-const char *parse_value_list(dtree *value, char *buffer, char *global, int last)
-{
-    if(value == NULL) return "[ERROR]";
-
-    /* The new offset we need (in \t) */
-    int i;
-
-    switch(value->type) {
-        case LITERAL:
-        {
-            size_t key_len = value->used;
-
-            strcpy(buffer, "\"");
-            strcat(buffer, value->payload.literal);
-            strcat(buffer, "\"");
-            strcat(buffer, "\0");
-
-            if(last == 0) strcat(buffer, ",");
-            break;
+    int s, d=0;
+    for (s=0; src[s] != 0; s++)
+        if (src[s] != ' ') {
+            dst[d] = src[s];
+            d++;
         }
-
-        case NUMERIC:
-        {
-            char str[15];
-            sprintf(str, "%ld", value->payload.numeral);
-
-            strcat(buffer, str);
-            if(last == 0) strcat(buffer, ",");
-            strcat(buffer, "\0");
-
-            break;
-        }
-
-        case LIST:
-        {
-            if(value->used > 0) {
-
-                dt_uni_t test = value->payload.list[0]->type;
-
-                if(test == LITERAL || test == NUMERIC) {
-                    fflush(stdout);
-
-                    int j;
-                    for(j = 0; j < value->used; j++) {
-                        dtree *child = value->payload.list[j];
-
-                        char vall[1024];
-                        parse_value_list(child, vall, global, (j == value->used - 1) ? TRUE : FALSE);
-                        fflush(stdout);
-                    }
-
-                    fflush(stdout);
-
-                } else if(test == PAIR) {
-                    fflush(stdout);
-                    append(global, "{");
-
-                    int j;
-                    for(j = 0; j < value->used; j++) {
-                        dtree *child = value->payload.list[j];
-
-                        if(child->type == PAIR) {
-                            dtree *key = child->payload.list[0];
-                            dtree *val = child->payload.list[1];
-
-                            char kkey[1024];
-
-                            parse_key_value(key, kkey);
-                            fflush(stdout);
-                            append(global, kkey);
-
-                            char vval[1024];
-                            parse_value_list(val, vval, global, (j == child->used - 1) ? TRUE : FALSE);
-                            fflush(stdout);
-
-                            append(global, vval);
-                        }
-                    }
-
-                    fflush(stdout);
-                    append(global, "}");
-                }
-
-            } else {
-                fflush(stdout);
-            }
-        }
-
-        default: INVALID_PAYLOAD;
-    }
-
-    return "";
-}
-
-void append(char *buffer, char *message)
-{
-    int msg_len = (int) strlen(message);
-    sprintf(buffer + json_len, message);
-    json_len += msg_len;
-}
-
-/**************** DECODER UTILITY FUNCTIONS ******************/
-
-void append_char(char *buffer, int *ctr, char c)
-{
-    sprintf(buffer + (*ctr), "%c", c);
-    (*ctr)++;
-}
-
-long to_long(char *buffer)
-{
-    return atol(buffer);
+    dst[d] = 0;
 }
