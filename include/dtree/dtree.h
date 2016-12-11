@@ -357,7 +357,7 @@ dt_err dtree_encode_json(dtree *data, char *json_data);
  * @param json_data Input json string
  * @return
  */
-dt_err dtree_decode_json(dtree *(*data), const char *json_data);
+dt_err dtree_decode_json(dtree *(*data), const char *json_data, size_t len);
 
 #ifdef __cplusplus
 }
