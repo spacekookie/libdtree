@@ -189,6 +189,19 @@ dt_err dtree_merge_trees(dtree *data, dtree *merge);
 
 
 /**
+ * You can use this function to search the structure of a root node to find the
+ * parent of the node you provide as "data". It will leave the search pointer
+ * blanked if the node can't be found in the structure.
+ *
+ * @param root Root reference to search
+ * @param data The node we are searching for
+ * @param parent The node parent we are interested in
+ * @return
+ */
+dt_err dtree_parent(dtree *root, dtree *data, dtree **parent);
+
+
+/**
  * Recursive tree search function that will return the first occurence match
  * to a provided payload (with an exact type). If you have data duplication
  * in your tree this _might_ return some false positives.

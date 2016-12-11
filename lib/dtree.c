@@ -335,6 +335,48 @@ dt_err dtree_copy_deep(dtree *data, dtree *(*copy))
     return err;
 }
 
+
+dt_err dtree_parent(dtree *root, dtree *data, dtree **parent)
+{
+    if(root == NULL || data == NULL) return INVALID_PARAMS;
+
+    /* Blank the search pointer for easy error checking */
+    (*parent) = NULL;
+
+    switch(data->type) {
+
+        /* Dead-end data stores automatically return @{NODE_NOT_FOUND} */
+        case POINTER:
+        case LITERAL:
+        case NUMERIC:
+            return NODE_NOT_FOUND;
+
+        case PAIR:
+        case LIST:
+            {
+                int i;
+                for(i = 0; i < root->used; i++) {
+
+                    /* Check if the node we're looking at is what we're searching for */
+                    if(root->payload.list[i] == data) {
+                        (*parent) = root;
+                        return SUCCESS;
+                    }
+
+                    dt_err err = dtree_parent(root->payload.list[i], data, parent);
+                    if(err == SUCCESS) return SUCCESS;
+                }
+            }
+            break;
+
+        default:
+            return INVALID_PAYLOAD;
+    }
+
+    return NODE_NOT_FOUND;
+}
+
+
 dt_err dtree_copy(dtree *data, dtree *(*copy))
 {
     if(data == NULL) return INVALID_PARAMS;
