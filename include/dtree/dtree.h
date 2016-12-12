@@ -26,10 +26,6 @@
 /* A helpful macro that can take care of \0 termated strings! */
 #define REAL_STRLEN(str) (strlen(str) + 1)
 
-#define DYNTREE_ENCODE_NONE        0x0
-#define DYNTREE_JSON_MINIFIED      0xA
-#define DYNTREE_JSON_HUMAN         0xB
-
 /* Also make sure we're _always_ interpreted as a C file */
 #ifdef __cplusplus
 extern "C" {
@@ -49,9 +45,15 @@ typedef struct dtree {
     short           copy;
     union {
         char                *literal;
-        long                numeral;
+        bool                bool;
         struct dtree        *(*list);
         void                *pointer;
+#ifdef __LONG_LONG_SUPPORT__
+        long long           numeral;
+#else
+        long                numeral;
+#endif
+
     } payload;
 } dtree;
 
@@ -97,7 +99,6 @@ dt_err dtree_resettype(dtree *data);
  *
  * @param data Reference to a dtree object
  * @param literal String to store
- * @param length TRUE string length to use.
  * @return
  */
 dt_err dtree_addliteral(dtree *data, const char *literal);
@@ -111,6 +112,17 @@ dt_err dtree_addliteral(dtree *data, const char *literal);
  * @return
  */
 dt_err dtree_addnumeral(dtree *data, long numeral);
+
+
+/**
+ * Set the data element to a boolean. Do you really
+ * need this? Consider using @dtree_add_numeral instead.
+ *
+ * @param data Reference to a dtree object
+ * @param b boolean value (true, false)
+ * @return
+ */
+dt_err dtree_addboolean(dtree *data, bool b);
 
 
 /**
