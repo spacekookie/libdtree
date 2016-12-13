@@ -47,7 +47,7 @@ int main(int argn, char **argv)
     // start timer
     gettimeofday(&t1, NULL);
 
-#define PATH "/home/spacekookie/Downloads/generated.json"
+#define PATH "/home/spacekookie/Downloads/MOCK_DATA.json"
 
     /* Open the file and seek through it for length */
     FILE *f = fopen(PATH, "r");
@@ -60,6 +60,10 @@ int main(int argn, char **argv)
     memset(json, 0, file_size + 1);
     fread(json, file_size, 1, f);
     fclose(f);
+
+//    char *json = "{ \"some_key\": \"some_value\" }";
+
+    printf("Raw json data. %s", json);
 
     dtree *recov;
     dtree_decode_json(&recov, json, file_size);

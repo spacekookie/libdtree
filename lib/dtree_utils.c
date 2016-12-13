@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <malloc.h>
 #include <stdlib.h>
+#include <jansson.h>
 
 #include "jsmn.h"
 
@@ -9,6 +10,8 @@
 #define DTREE_TOK_BOOLEAN   (1 << 1)
 #define DTREE_TOK_NUMERICAL (1 << 2)
 #define DTREE_TOK_LITERAL   (1 << 3)
+
+#define TOK_PAIR_KEYED      (1 << 11)
 
 
 char *tok_to_str(jsmntype_t *tok)
@@ -47,10 +50,11 @@ dt_err dtree_decode_json(dtree *(*data), const char *json_data, size_t len)
     jsmn_init(&parse);
 
     // FIXME: Variable amount of tokens?
-    jsmntok_t *tokens = malloc(sizeof(jsmntok_t) * len);
-    memset(tokens, 0, sizeof(jsmntok_t) * len);
+    unsigned int no_tokens = 1024 * 32;
+    jsmntok_t *tokens = malloc(sizeof(jsmntok_t) * no_tokens);
+    memset(tokens, 0, sizeof(jsmntok_t) * no_tokens);
 
-    int ret = jsmn_parse(&parse, json_data, strlen(json_data), tokens, sizeof(tokens) / sizeof(tokens[0]));
+    int ret = jsmn_parse(&parse, json_data, strlen(json_data), tokens, no_tokens);
 
     jsmntok_t tok;
     unsigned int idx = 0;
@@ -66,8 +70,6 @@ dt_err dtree_decode_json(dtree *(*data), const char *json_data, size_t len)
 
     struct pair {
         short   state;
-#define TOK_PAIR_KEYED  1
-#define TOK_PAIR_VALUED 2
         char    key[1024];
         union   value {
             char            string[1024];
@@ -86,8 +88,8 @@ dt_err dtree_decode_json(dtree *(*data), const char *json_data, size_t len)
     while(tok = tokens[idx++], tok.type != NULL) {
 
         size_t tok_len = (size_t) tok.end - tok.start;
-        char token[tok_len];
-        memset(token, 0, tok_len);
+        char token[tok_len + 1];
+        memset(token, 0, tok_len + 1);
         memcpy(token, json_data + tok.start, tok_len);
 
         /** Check if we need to move the boundry scope (again) */
@@ -150,6 +152,7 @@ dt_err dtree_decode_json(dtree *(*data), const char *json_data, size_t len)
                 continue;
             }
 
+            case JSMN_PRIMITIVE:
             case JSMN_STRING:
             {
                 /**
