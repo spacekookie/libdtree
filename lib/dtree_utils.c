@@ -56,8 +56,8 @@ dt_err dtree_decode_json(dtree *(*data), const char *json_data, size_t len)
 
     int ret = jsmn_parse(&parse, json_data, strlen(json_data), tokens, no_tokens);
 
-    jsmntok_t tok;
     unsigned int idx = 0;
+    jsmntok_t tok;
 
     /** Prepare dtree nodes */
     dtree *root, *curr;
@@ -80,6 +80,12 @@ dt_err dtree_decode_json(dtree *(*data), const char *json_data, size_t len)
     /* Save some space to store token bounds */
     struct bounds *bounds = malloc(sizeof(struct bounds) * len);
     memset(bounds, 0, sizeof(struct bounds) * len);
+
+    /* Have a structure to record array types in the tree */
+    bool *is_array = malloc(sizeof(bool) * len);
+    memset(bounds, 0, sizeof(bool) * len);
+
+    /* Set the currently focused node */
     int focused = -1;
 
     struct pair c_pair;
@@ -118,11 +124,17 @@ dt_err dtree_decode_json(dtree *(*data), const char *json_data, size_t len)
              * current root and switch over our boundry scope as well. This is done before the
              * parsing switch statement.
              */
+            case JSMN_ARRAY:
             case JSMN_OBJECT:
             {
                 focused++;
                 bounds[focused].low = tok.start;
                 bounds[focused].high = tok.end;
+
+                /* This is not elegant at all! */
+                if(tok.type == JSMN_ARRAY) is_array[focused] = true;
+
+
 
                 /**
                  * Most of the time, we will create a new object under the key of
@@ -145,7 +157,6 @@ dt_err dtree_decode_json(dtree *(*data), const char *json_data, size_t len)
 
                     /* Blank c_pair data for next tokens */
                     memset(&c_pair, 0, sizeof(struct pair));
-
                 }
 
                 /* Skip to next token */
@@ -155,47 +166,82 @@ dt_err dtree_decode_json(dtree *(*data), const char *json_data, size_t len)
             case JSMN_PRIMITIVE:
             case JSMN_STRING:
             {
+
                 /**
-                 * Here we need to check if we are adding a string as a key
-                 * or as a value. This is simply done by checking for the existance
-                 * of a key in the c_pair (current pair) variable.
-                 *
-                 * We know the token positions so we can manualy copy from the json stream
+                 * First check if we are currently dealing with an array. If we are
+                 * the way that we create nodes changes. Every token is immediately added
+                 * to the currently focused list node
                  */
-                 if(c_pair.state == 0) {
-                     memcpy(c_pair.key, json_data + tok.start, (size_t) tok.end - tok.start);
-                     c_pair.state = TOK_PAIR_KEYED;
+                if(is_array[focused]) {
 
-                 } else if(c_pair.state == TOK_PAIR_KEYED){
+                    dtree *val;
+                    dtree_addlist(curr, &val);
 
-                     /** Create a PAIR node under current root */
-                     dtree *pair, *key, *val;
-                     dtree_addlist(curr, &pair);
-                     dtree_addpair(pair, &key, &val);
+                    /* Parse payload and asign to value node */
+                    switch(digest_payload(token)) {
+                        case DTREE_TOK_LITERAL:
+                            dtree_addliteral(val, token);
+                            break;
 
-                     /* Key is always literal */
-                     dtree_addliteral(key, c_pair.key);
+                        case DTREE_TOK_NUMERICAL:
+                            dtree_addnumeral(val, atol(token));
+                            break;
 
-                     /* Parse payload and asign to value node */
-                     switch(digest_payload(token)) {
-                         case DTREE_TOK_LITERAL:
-                             dtree_addliteral(val, token);
-                             break;
+                        case DTREE_TOK_BOOLEAN:
+                            dtree_addboolean(val, (strcpy(token, "true") == 0) ? true : false);
+                            break;
 
-                         case DTREE_TOK_NUMERICAL:
-                             dtree_addnumeral(val, atol(token));
-                             break;
+                        default: continue;
+                    }
 
-                         case DTREE_TOK_BOOLEAN:
-                             dtree_addboolean(val, (strcpy(token, "true") == 0) ? true : false);
-                             break;
+                    /* Blank c_pair data for next tokens */
+                    memset(&c_pair, 0, sizeof(struct pair));
 
-                         default: continue;
-                     }
+                } else {
 
-                     /* Blank c_pair data for next tokens */
-                     memset(&c_pair, 0, sizeof(struct pair));
-                 }
+                    /**
+                     * Here we need to check if we are adding a string as a key
+                     * or as a value. This is simply done by checking for the existance
+                     * of a key in the c_pair (current pair) variable.
+                     *
+                     * We know the token positions so we can manualy copy from the json stream
+                     */
+                    if(c_pair.state == 0) {
+                        memcpy(c_pair.key, json_data + tok.start, (size_t) tok.end - tok.start);
+                        c_pair.state = TOK_PAIR_KEYED;
+
+                    } else if(c_pair.state == TOK_PAIR_KEYED){
+
+                        /** Create a PAIR node under current root */
+                        dtree *pair, *key, *val;
+                        dtree_addlist(curr, &pair);
+                        dtree_addpair(pair, &key, &val);
+
+                        /* Key is always literal */
+                        dtree_addliteral(key, c_pair.key);
+
+                        /* Parse payload and asign to value node */
+                        switch(digest_payload(token)) {
+                            case DTREE_TOK_LITERAL:
+                                dtree_addliteral(val, token);
+                                break;
+
+                            case DTREE_TOK_NUMERICAL:
+                                dtree_addnumeral(val, atol(token));
+                                break;
+
+                            case DTREE_TOK_BOOLEAN:
+                                dtree_addboolean(val, (strcpy(token, "true") == 0) ? true : false);
+                                break;
+
+                            default: continue;
+                        }
+
+                        /* Blank c_pair data for next tokens */
+                        memset(&c_pair, 0, sizeof(struct pair));
+                    }
+
+                }
 
                 /* Skip to next token */
                 continue;
