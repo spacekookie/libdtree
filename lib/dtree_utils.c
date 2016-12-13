@@ -83,7 +83,7 @@ dt_err dtree_decode_json(dtree *(*data), const char *json_data, size_t len)
 
     /* Have a structure to record array types in the tree */
     bool *is_array = malloc(sizeof(bool) * len);
-    memset(bounds, 0, sizeof(bool) * len);
+    memset(is_array, 0, sizeof(bool) * len);
 
     /* Set the currently focused node */
     int focused = -1;
@@ -102,13 +102,21 @@ dt_err dtree_decode_json(dtree *(*data), const char *json_data, size_t len)
         if(focused > 0 && tok.end >= bounds[focused].high) {
             focused--;
 
-            /* Because of how our root node is a VALUE node, we need the parents parent */
+            /**
+             * We need to check if our direct parent is a PAIR or LIST type
+             *
+             * If it is a PAIR, it means we need to extract 2-stage parents
+             * If it is a LIST, it means we can leave it at 1.
+             */
             dtree *parent, *pair_parent;
             dtree_parent(root, curr, &parent);
-            dtree_parent(root, parent, &pair_parent);
+
+            if(parent->type == PAIR){
+                dtree_parent(root, parent, &parent); // Override the PARENT variable
+            }
 
             /* Assign the new root node - old scope restored */
-            curr = pair_parent;
+            curr = parent;
         }
 
         switch(tok.type) {
@@ -134,7 +142,17 @@ dt_err dtree_decode_json(dtree *(*data), const char *json_data, size_t len)
                 /* This is not elegant at all! */
                 if(tok.type == JSMN_ARRAY) is_array[focused] = true;
 
+                /* Then we check if our parent is an array */
+                if(focused - 1 >= 0 && is_array[focused - 1]) {
 
+                    /** If our parent is an array we need to add a new object to our parent (CURR) **/
+                    dtree *obj;
+                    dtree_addlist(curr, &obj);
+
+                    /* Then switch over our current value */
+                    curr = obj;
+
+                }
 
                 /**
                  * Most of the time, we will create a new object under the key of
