@@ -22,6 +22,7 @@
 #define _DYNTREE_H_
 
 #include <memory.h>
+#include <stdbool.h>
 
 /* A helpful macro that can take care of \0 termated strings! */
 #define REAL_STRLEN(str) (strlen(str) + 1)
@@ -34,7 +35,7 @@ extern "C" {
 
 /* Type that determines what data is stored inside a tree-node */
 typedef enum dt_uni_t {
-    UNSET, LITERAL, NUMERIC, LIST, PAIR, POINTER
+    UNSET, LITERAL, NUMERIC, LONG_NUMERIC, BOOLEAN, LIST, PAIR, POINTER
 } dt_uni_t;
 
 
@@ -45,7 +46,7 @@ typedef struct dtree {
     short           copy;
     union {
         char                *literal;
-        bool                bool;
+        bool                boolean;
         struct dtree        *(*list);
         void                *pointer;
 #ifdef __LONG_LONG_SUPPORT__

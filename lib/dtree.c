@@ -55,7 +55,7 @@ dt_err dtree_resettype(dtree *data)
 
     /* Set the data type to unset */
     data->type = UNSET;
-    data->encset = DYNTREE_ENCODE_NONE;
+    data->encset = 0;
     data->size = 0;
     data->used = 0;
 
@@ -118,6 +118,20 @@ dt_err dtree_addnumeral(dtree *data, long numeral)
     data->type = NUMERIC;
     data->size = sizeof(int);
     data->used = sizeof(int);
+    return SUCCESS;
+}
+
+
+dt_err dtree_addboolean(dtree *data, bool b)
+{
+    /* Make sure we are a literal or unset data object */
+    if(data->type != UNSET)
+        if(data->type != BOOLEAN) return INVALID_PAYLOAD;
+
+    data->payload.boolean = b;
+    data->type = BOOLEAN;
+    data->size = sizeof(bool);
+    data->used = sizeof(bool);
     return SUCCESS;
 }
 
@@ -286,11 +300,15 @@ dt_err dtree_copy_deep(dtree *data, dtree *(*copy))
 
     switch(type) {
         case LITERAL:
-            dtree_addliteral((*copy), data->payload.literal);
+            dtree_addliteral(*copy, data->payload.literal);
             break;
 
         case NUMERIC:
-            dtree_addnumeral((*copy), data->payload.numeral);
+            dtree_addnumeral(*copy, data->payload.numeral);
+            break;
+
+        case BOOLEAN:
+            dtree_addboolean(*copy, data->payload.boolean);
             break;
 
         case LIST:
@@ -302,7 +320,7 @@ dt_err dtree_copy_deep(dtree *data, dtree *(*copy))
                 dtree *node = data->payload.list[i];
 
                 dtree *new;
-                dtree_addlist((*copy), &new);
+                dtree_addlist(*copy, &new);
                 dtree_copy_deep(node, &new);
             }
 
@@ -312,7 +330,7 @@ dt_err dtree_copy_deep(dtree *data, dtree *(*copy))
         case PAIR:
         {
             dtree *key, *val;
-            dtree_addpair((*copy), &key, &val);
+            dtree_addpair(*copy, &key, &val);
 
             dtree *orig_key = data->payload.list[0];
             dtree *orig_val = data->payload.list[1];
@@ -324,7 +342,7 @@ dt_err dtree_copy_deep(dtree *data, dtree *(*copy))
         }
 
         case POINTER:
-            dtree_addpointer((*copy), data->payload.pointer);
+            dtree_addpointer(*copy, data->payload.pointer);
             break;
 
         default:
@@ -348,6 +366,7 @@ dt_err dtree_parent(dtree *root, dtree *data, dtree **parent)
         /* Dead-end data stores automatically return @{NODE_NOT_FOUND} */
         case POINTER:
         case LITERAL:
+        case BOOLEAN:
         case NUMERIC:
             return NODE_NOT_FOUND;
 
@@ -397,6 +416,10 @@ dt_err dtree_copy(dtree *data, dtree *(*copy))
 
         case NUMERIC:
             err = dtree_addnumeral(*copy, data->payload.numeral);
+            break;
+
+        case BOOLEAN:
+            err = dtree_addboolean(*copy, data->payload.boolean);
             break;
 
         case LIST:
@@ -456,6 +479,11 @@ dt_err dtree_search_payload(dtree *data, dtree *(*found), void *payload, dt_uni_
                     *found = data;
                 break;
 
+            case BOOLEAN:
+                if(data->payload.boolean == (bool) payload)
+                    *found = data;
+                break;
+
             case POINTER:
                 if(data->payload.pointer == payload)
                     *found = data;
@@ -469,6 +497,7 @@ dt_err dtree_search_payload(dtree *data, dtree *(*found), void *payload, dt_uni_
     return (*found == NULL) ? NODE_NOT_FOUND : SUCCESS;
 }
 
+// FIXME: This is horrible. Do via context?
 static int reached = 0;
 dt_err dtree_search_keypayload(dtree *data, dtree *(*found), void *payload, dt_uni_t type, int depth)
 {
@@ -484,12 +513,19 @@ dt_err dtree_search_keypayload(dtree *data, dtree *(*found), void *payload, dt_u
 
         dt_uni_t tt;
         int hit = -1;
+
         if(strcmp(key->payload.literal, (char*) payload) == 0) {
             tt = LITERAL;
             hit = 0;
         }
+
         if(key->payload.numeral == (long) payload) {
             tt = NUMERIC;
+            hit = 0;
+        }
+
+        if(key->payload.boolean == (bool) payload) {
+            tt = BOOLEAN;
             hit = 0;
         }
 
@@ -531,6 +567,10 @@ dt_err dtree_search_keypayload(dtree *data, dtree *(*found), void *payload, dt_u
                     *found = data;
                 break;
 
+            case BOOLEAN:
+                if(data->payload.boolean == (bool) payload)
+                    *found = data;
+
             case POINTER:
                 if(data->payload.pointer == payload)
                     *found = data;
@@ -562,6 +602,10 @@ void list_print(dtree *data, const char *offset)
             printf("%s[%lu]\n", offset, data->payload.numeral);
             break;
 
+        case BOOLEAN:
+            printf("%s['%s']\n", offset, (data->payload.boolean) ? "TRUE" : "FALSE");
+            break;
+
         case PAIR:
         {
             dt_uni_t k_type = data->payload.list[0]->type;
@@ -569,6 +613,7 @@ void list_print(dtree *data, const char *offset)
 
             if(k_type == LITERAL) printf("%s['%s']", offset, data->payload.list[0]->payload.literal);
             if(k_type == NUMERIC) printf("%s[%lu]", offset, data->payload.list[0]->payload.numeral);
+            if(k_type == BOOLEAN) printf("%s[%s]", offset, (data->payload.list[0]->payload.boolean) ? "TRUE" : "FALSE");
 
             char new_offset[REAL_STRLEN(offset) + 2];
             strcpy(new_offset, offset);
@@ -579,6 +624,7 @@ void list_print(dtree *data, const char *offset)
             /* Print the value now */
             if(v_type == LITERAL) printf(" => ['%s']\n", data->payload.list[1]->payload.literal);
             if(v_type== NUMERIC) printf(" => [%lu]\n", data->payload.list[1]->payload.numeral);
+            if(k_type == BOOLEAN) printf("%s[%s]", offset, (data->payload.list[1]->payload.boolean) ? "TRUE" : "FALSE");
 
             if(v_type == LIST || k_type == PAIR) list_print(data->payload.list[1], new_offset);
 
@@ -599,6 +645,7 @@ void list_print(dtree *data, const char *offset)
 
                 switch(t) {
                     case LITERAL:
+                    case BOOLEAN:
                     case NUMERIC:
                         list_print(data->payload.list[i], new_offset);
                         continue;
@@ -635,6 +682,7 @@ dt_err dtree_get(dtree *data, void *(*val))
 {
     if(data->type == LITERAL) *val = data->payload.literal;
     if(data->type == NUMERIC) *val = &data->payload.numeral;
+    if(data->type == BOOLEAN) *val = &data->payload.boolean;
     if(data->type == LIST || data->type == PAIR) *val = (dtree*) data->payload.list;
     return SUCCESS;
 }
@@ -696,6 +744,7 @@ const char *dtree_dtype(dtree *data)
     switch(data->type) {
         case LITERAL:       return "Literal";
         case NUMERIC:       return "Numeric";
+        case BOOLEAN:       return "Boolean";
         case LIST:          return "List";
         case PAIR:          return "Pair";
         case POINTER:       return "Pointer";
