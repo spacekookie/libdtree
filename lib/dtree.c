@@ -624,7 +624,7 @@ void list_print(dtree *data, const char *offset)
             /* Print the value now */
             if(v_type == LITERAL) printf(" => ['%s']\n", data->payload.list[1]->payload.literal);
             if(v_type== NUMERIC) printf(" => [%lu]\n", data->payload.list[1]->payload.numeral);
-            if(k_type == BOOLEAN) printf("%s[%s]", offset, (data->payload.list[1]->payload.boolean) ? "TRUE" : "FALSE");
+            if(v_type == BOOLEAN) printf(" => [%s]\n", (data->payload.list[1]->payload.boolean) ? "TRUE" : "FALSE");
 
             if(v_type == LIST || k_type == PAIR) list_print(data->payload.list[1], new_offset);
 
