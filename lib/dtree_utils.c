@@ -186,6 +186,10 @@ dt_err dtree_decode_json(dtree *(*data), const char *json_data, size_t len)
                              dtree_addnumeral(val, atol(token));
                              break;
 
+                         case DTREE_TOK_BOOLEAN:
+                             dtree_addboolean(val, (strcpy(token, "true") == 0) ? true : false);
+                             break;
+
                          default: continue;
                      }
 
