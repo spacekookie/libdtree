@@ -7,7 +7,7 @@ features are still experimental and the API might change at any point
 so be aware.
 
 How to build
-============
+------------
 
 libdyntree is built with cmake. It has no external dependencies and
 compilation has been tested with gcc 6+ on Linx systems. It was tested
@@ -22,7 +22,8 @@ $> make -j 2
 This will create a `.so` file. If you require a static object, you can
 change the linking behaviour in the `CMakeLists.txt` file.
 
-## How to use
+How to use
+----------
 
 Everything resolves around `dtree` objects and providing fields to API
 functions. Generally, memory is managed for you by libdtree:
@@ -54,13 +55,16 @@ below:
  - Pair
  - Pointer
 
-Some more advanced functions include a getter, a search, a keyed search as well as tree merge and split functions. Please consult the wiki for details on how to use some of these functions.
+Some more advanced functions include a getter, a search, a keyed
+search as well as tree merge and split functions. Please consult the
+wiki for details on how to use some of these functions.
 
-## License
+License
+-------
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 3 of the License, or (at
 your option) any later version.
 
-I hope you enjoy ♥
+I hope you enjoy ❤
