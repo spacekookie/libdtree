@@ -1,5 +1,5 @@
 // Include our header file
-#include <dtree/dtree.h>
+#include "bowl.h"
 
 // Runtime includes
 #include <stdlib.h>
@@ -16,28 +16,27 @@
 
 /*** Forward declared functions ***/
 
-int list_search(dtree**, dtree *, dtree *);
+int list_search(struct bowl**, struct bowl*, struct bowl*);
 
-void list_print(dtree *data, const char *offset);
+void list_print(struct bowl *data, const char *offset);
 
 /******/
 
-
-dt_err dtree_malloc(dtree *(*data))
+dt_err bowl_malloc(struct bowl *(*data))
 {
-    (*data) = (dtree*) malloc(sizeof(dtree));
+    (*data) = (struct bowl*) malloc(sizeof(struct bowl));
     if(*data == NULL) {
-        printf("Creating dtree object FAILED");
+        printf("Creating bowl object FAILED");
         return MALLOC_FAILED;
     }
 
-    memset(*data, 0, sizeof(dtree));
+    memset(*data, 0, sizeof(struct bowl));
 
     (*data)->type = UNSET;
     return SUCCESS;
 }
 
-dt_err dtree_resettype(dtree *data)
+dt_err bowl_resettype(struct bowl *data)
 {
     if(data->type == LITERAL) {
         if(data->payload.literal) free(data->payload.literal);
@@ -48,7 +47,7 @@ dt_err dtree_resettype(dtree *data)
         int i;
         dt_err err;
         for(i = 0; i < data->size; i++) {
-            err = dtree_free(data->payload.list[i]);
+            err = bowl_free(data->payload.list[i]);
             if(err) return err;
         }
     }
@@ -65,7 +64,7 @@ dt_err dtree_resettype(dtree *data)
     return SUCCESS;
 }
 
-dt_err dtree_addliteral(dtree *data, const char *literal)
+dt_err bowl_addliteral(struct bowl *data, const char *literal)
 {
     /* Make sure we are a literal or unset data object */
     if(data->type != UNSET)
@@ -94,7 +93,7 @@ dt_err dtree_addliteral(dtree *data, const char *literal)
 }
 
 
-dt_err dtree_addpointer(dtree *data, void *ptr)
+dt_err bowl_addpointer(struct bowl *data, void *ptr)
 {
     if(data->type != UNSET)
         if(data->type != POINTER) return INVALID_PAYLOAD;
@@ -108,7 +107,7 @@ dt_err dtree_addpointer(dtree *data, void *ptr)
 }
 
 
-dt_err dtree_addnumeral(dtree *data, long numeral)
+dt_err bowl_addnumeral(struct bowl *data, long numeral)
 {
     /* Make sure we are a literal or unset data object */
     if(data->type != UNSET)
@@ -122,7 +121,7 @@ dt_err dtree_addnumeral(dtree *data, long numeral)
 }
 
 
-dt_err dtree_addboolean(dtree *data, bool b)
+dt_err bowl_addboolean(struct bowl *data, bool b)
 {
     /* Make sure we are a literal or unset data object */
     if(data->type != UNSET)
@@ -136,7 +135,7 @@ dt_err dtree_addboolean(dtree *data, bool b)
 }
 
 
-dt_err dtree_addlist(dtree *data, dtree *(*new_data))
+dt_err bowl_addlist(struct bowl *data, struct bowl *(*new_data))
 {
     /* Make sure we are a literal or unset data object */
     if(data->type != UNSET)
@@ -152,8 +151,8 @@ dt_err dtree_addlist(dtree *data, dtree *(*new_data))
             data->size += RDB_REC_MULTIPLY;
 
             // TODO Use Realloc
-            dtree **tmp = (dtree**) malloc(sizeof(dtree*) * data->size);
-            memcpy(tmp, data->payload.list, sizeof(dtree*) * data->used);
+            struct bowl **tmp = (struct bowl**) malloc(sizeof(struct bowl*) * data->size);
+            memcpy(tmp, data->payload.list, sizeof(struct bowl*) * data->used);
 
             /* Free the list WITHOUT the children! */
             free(data->payload.list);
@@ -162,14 +161,14 @@ dt_err dtree_addlist(dtree *data, dtree *(*new_data))
 
     /* This means the data object is new */
     } else {
-        dtree **tmp = (dtree**) malloc(sizeof(dtree*) * RDB_REC_DEF_SIZE);
+        struct bowl **tmp = (struct bowl**) malloc(sizeof(struct bowl*) * RDB_REC_DEF_SIZE);
         data->payload.list = tmp;
         data->type = LIST;
         data->used = 0;
         data->size = RDB_REC_DEF_SIZE;
     }
 
-    err = dtree_malloc(new_data);
+    err = bowl_malloc(new_data);
     if(err) return err;
 
     /* Reference the slot, assign it, then move our ctr */
@@ -179,7 +178,7 @@ dt_err dtree_addlist(dtree *data, dtree *(*new_data))
 }
 
 
-dt_err dtree_addpair(dtree *data, dtree *(*key), dtree *(*value))
+dt_err bowl_addpair(struct bowl *data, struct bowl *(*key), struct bowl *(*value))
 {
     /* Make sure we are a literal or unset data object */
     if(data->type != UNSET) return INVALID_PAYLOAD;
@@ -187,15 +186,15 @@ dt_err dtree_addpair(dtree *data, dtree *(*key), dtree *(*value))
     dt_err err;
 
     /* Malloc two nodes */
-    err = dtree_malloc(key);
+    err = bowl_malloc(key);
     if(err) goto cleanup;
 
-    err = dtree_malloc(value);
+    err = bowl_malloc(value);
     if(err) goto cleanup;
 
     /** Malloc space for PAIR */
     data->size = 2;
-    dtree **tmp = (dtree**) malloc(sizeof(dtree*) * data->size);
+    struct bowl **tmp = (struct bowl**) malloc(sizeof(struct bowl*) * data->size);
     if(!tmp) goto cleanup;
 
     data->payload.list = tmp;
@@ -220,13 +219,13 @@ dt_err dtree_addpair(dtree *data, dtree *(*key), dtree *(*value))
 }
 
 
-dt_err dtree_split_trees(dtree *data, dtree *sp)
+dt_err bowl_split_trees(struct bowl *data, struct bowl *sp)
 {
     /* Make sure we are a literal or unset data object */
     if(data->type == UNSET) return INVALID_PAYLOAD;
 
     /* Check that sp is really a child of data */
-    dtree *dp;
+    struct bowl *dp;
     int ret = list_search(&dp, data, sp);
     if(ret != 0) return DATA_NOT_RELATED;
     if(dp == NULL) return NODE_NOT_FOUND;
@@ -247,7 +246,7 @@ dt_err dtree_split_trees(dtree *data, dtree *sp)
 }
 
 
-dt_err dtree_merge_trees(dtree *data, dtree *merge)
+dt_err bowl_merge_trees(struct bowl *data, struct bowl *merge)
 {
     /* REALLY make sure the type is correct */
     if(data->type == UNSET) return INVALID_PARAMS;
@@ -261,8 +260,8 @@ dt_err dtree_merge_trees(dtree *data, dtree *merge)
         if(data->used >= data->size) {
             data->size += RDB_REC_MULTIPLY;
 
-            dtree **tmp = (dtree**) malloc(sizeof(dtree*) * data->size);
-            memcpy(tmp, data->payload.list, sizeof(dtree*) * data->used);
+            struct bowl **tmp = (struct bowl**) malloc(sizeof(struct bowl*) * data->size);
+            memcpy(tmp, data->payload.list, sizeof(struct bowl*) * data->used);
 
             /* Free the list WITHOUT the children! */
             free(data->payload.list);
@@ -271,7 +270,7 @@ dt_err dtree_merge_trees(dtree *data, dtree *merge)
 
         /* This means the data object is new */
     } else {
-        dtree **tmp = (dtree**) malloc(sizeof(dtree*) * data->size);
+        struct bowl **tmp = (struct bowl**) malloc(sizeof(struct bowl*) * data->size);
         data->payload.list = tmp;
         data->type = LIST;
         data->used = 0;
@@ -286,29 +285,29 @@ dt_err dtree_merge_trees(dtree *data, dtree *merge)
 }
 
 
-dt_err dtree_copy_deep(dtree *data, dtree *(*copy))
+dt_err bowl_copy_deep(struct bowl *data, struct bowl *(*copy))
 {
     if(data == NULL) return INVALID_PARAMS;
     dt_err err = SUCCESS;
 
     int it_type = -1;
-    dt_uni_t type = data->type;
+    bowl_t type = data->type;
 
     /* Check if we're the first call */
-    if((*copy) == NULL) dtree_malloc(copy);
+    if((*copy) == NULL) bowl_malloc(copy);
     (*copy)->copy = DEEP;
 
     switch(type) {
         case LITERAL:
-            dtree_addliteral(*copy, data->payload.literal);
+            bowl_addliteral(*copy, data->payload.literal);
             break;
 
         case NUMERIC:
-            dtree_addnumeral(*copy, data->payload.numeral);
+            bowl_addnumeral(*copy, data->payload.numeral);
             break;
 
         case BOOLEAN:
-            dtree_addboolean(*copy, data->payload.boolean);
+            bowl_addboolean(*copy, data->payload.boolean);
             break;
 
         case LIST:
@@ -317,11 +316,11 @@ dt_err dtree_copy_deep(dtree *data, dtree *(*copy))
             int num = (int) data->used;
 
             for(i = 0; i < num; i++) {
-                dtree *node = data->payload.list[i];
+                struct bowl *node = data->payload.list[i];
 
-                dtree *new;
-                dtree_addlist(*copy, &new);
-                dtree_copy_deep(node, &new);
+                struct bowl *new;
+                bowl_addlist(*copy, &new);
+                bowl_copy_deep(node, &new);
             }
 
             break;
@@ -329,20 +328,20 @@ dt_err dtree_copy_deep(dtree *data, dtree *(*copy))
 
         case PAIR:
         {
-            dtree *key, *val;
-            dtree_addpair(*copy, &key, &val);
+            struct bowl *key, *val;
+            bowl_addpair(*copy, &key, &val);
 
-            dtree *orig_key = data->payload.list[0];
-            dtree *orig_val = data->payload.list[1];
+            struct bowl *orig_key = data->payload.list[0];
+            struct bowl *orig_val = data->payload.list[1];
 
-            dtree_copy_deep(orig_key, &key);
-            dtree_copy_deep(orig_val, &val);
+            bowl_copy_deep(orig_key, &key);
+            bowl_copy_deep(orig_val, &val);
 
             break;
         }
 
         case POINTER:
-            dtree_addpointer(*copy, data->payload.pointer);
+            bowl_addpointer(*copy, data->payload.pointer);
             break;
 
         default:
@@ -354,7 +353,7 @@ dt_err dtree_copy_deep(dtree *data, dtree *(*copy))
 }
 
 
-dt_err dtree_parent(dtree *root, dtree *data, dtree **parent)
+dt_err bowl_parent(struct bowl *root, struct bowl *data, struct bowl **parent)
 {
     if(root == NULL || data == NULL) return INVALID_PARAMS;
 
@@ -382,7 +381,7 @@ dt_err dtree_parent(dtree *root, dtree *data, dtree **parent)
                         return SUCCESS;
                     }
 
-                    dt_err err = dtree_parent(root->payload.list[i], data, parent);
+                    dt_err err = bowl_parent(root->payload.list[i], data, parent);
                     if(err == SUCCESS) return SUCCESS;
                 }
             }
@@ -396,13 +395,13 @@ dt_err dtree_parent(dtree *root, dtree *data, dtree **parent)
 }
 
 
-dt_err dtree_copy(dtree *data, dtree *(*copy))
+dt_err bowl_copy(struct bowl *data, struct bowl *(*copy))
 {
     if(data == NULL) return INVALID_PARAMS;
     dt_err err = SUCCESS;
 
     /* Allocate a new node */
-    err = dtree_malloc(copy);
+    err = bowl_malloc(copy);
     if(err) goto exit;
 
     /* Mark as shallow copy */
@@ -411,27 +410,27 @@ dt_err dtree_copy(dtree *data, dtree *(*copy))
     /* Find out how to handle specific payloads */
     switch(data->type) {
         case LITERAL:
-            err = dtree_addliteral(*copy, data->payload.literal);
+            err = bowl_addliteral(*copy, data->payload.literal);
             break;
 
         case NUMERIC:
-            err = dtree_addnumeral(*copy, data->payload.numeral);
+            err = bowl_addnumeral(*copy, data->payload.numeral);
             break;
 
         case BOOLEAN:
-            err = dtree_addboolean(*copy, data->payload.boolean);
+            err = bowl_addboolean(*copy, data->payload.boolean);
             break;
 
         case LIST:
             (*copy)->type = LIST;
-            (*copy)->payload.list = (dtree**) malloc(sizeof(dtree*) * data->size);
-            memcpy((*copy)->payload.list, data->payload.list, sizeof(dtree*) * data->used);
+            (*copy)->payload.list = (struct bowl**) malloc(sizeof(struct bowl*) * data->size);
+            memcpy((*copy)->payload.list, data->payload.list, sizeof(struct bowl*) * data->used);
             break;
 
         case PAIR:
             (*copy)->type = PAIR;
-            (*copy)->payload.list = (dtree**) malloc(sizeof(dtree*) * data->size);
-            memcpy((*copy)->payload.list, data->payload.list, sizeof(dtree*) * data->used);
+            (*copy)->payload.list = (struct bowl**) malloc(sizeof(struct bowl*) * data->size);
+            memcpy((*copy)->payload.list, data->payload.list, sizeof(struct bowl*) * data->used);
             break;
 
         case POINTER:
@@ -448,7 +447,7 @@ dt_err dtree_copy(dtree *data, dtree *(*copy))
 }
 
 
-dt_err dtree_search_payload(dtree *data, dtree *(*found), void *payload, dt_uni_t type)
+dt_err bowl_search_payload(struct bowl *data, struct bowl *(*found), void *payload, bowl_t type)
 {
     if(data == NULL) return INVALID_PARAMS;
 
@@ -459,7 +458,7 @@ dt_err dtree_search_payload(dtree *data, dtree *(*found), void *payload, dt_uni_
 
         int i;
         for(i = 0; i < data->used; i++) {
-            dt_err err = dtree_search_payload(data->payload.list[i], found, payload, type);
+            dt_err err = bowl_search_payload(data->payload.list[i], found, payload, type);
             if(err == SUCCESS) return SUCCESS;
         }
 
@@ -499,7 +498,7 @@ dt_err dtree_search_payload(dtree *data, dtree *(*found), void *payload, dt_uni_
 
 // FIXME: This is horrible. Do via context?
 static int reached = 0;
-dt_err dtree_search_keypayload(dtree *data, dtree *(*found), void *payload, dt_uni_t type, int depth)
+dt_err bowl_search_keypayload(struct bowl *data, struct bowl *(*found), void *payload, bowl_t type, int depth)
 {
     if(data == NULL) return INVALID_PARAMS;
     if(reached++ >= depth) return QUERY_TOO_DEEP;
@@ -509,9 +508,9 @@ dt_err dtree_search_keypayload(dtree *data, dtree *(*found), void *payload, dt_u
 
     /* We can only search LISTed values or PAIRs */
     if(data->type == PAIR) {
-        dtree *key = data->payload.list[0];
+        struct bowl *key = data->payload.list[0];
 
-        dt_uni_t tt;
+        bowl_t tt;
         int hit = -1;
 
         if(strcmp(key->payload.literal, (char*) payload) == 0) {
@@ -535,7 +534,7 @@ dt_err dtree_search_keypayload(dtree *data, dtree *(*found), void *payload, dt_u
 
         int i;
         for(i = 0; i < data->used; i++) {
-            dtree_search_keypayload(data->payload.list[i], found, payload, type, depth);
+            bowl_search_keypayload(data->payload.list[i], found, payload, type, depth);
         }
 
     } else {
@@ -547,7 +546,7 @@ dt_err dtree_search_keypayload(dtree *data, dtree *(*found), void *payload, dt_u
 
         int i;
         for(i = 0; i < data->used; i++) {
-            dt_err err = dtree_search_payload(data->payload.list[i], found, payload, type);
+            dt_err err = bowl_search_payload(data->payload.list[i], found, payload, type);
             if(err == SUCCESS) return SUCCESS;
         }
 
@@ -585,9 +584,9 @@ dt_err dtree_search_keypayload(dtree *data, dtree *(*found), void *payload, dt_u
 }
 
 
-void list_print(dtree *data, const char *offset)
+void list_print(struct bowl *data, const char *offset)
 {
-    dt_uni_t type = data->type;
+    bowl_t type = data->type;
 
     switch(type) {
         case UNSET:
@@ -608,8 +607,8 @@ void list_print(dtree *data, const char *offset)
 
         case PAIR:
         {
-            dt_uni_t k_type = data->payload.list[0]->type;
-            dt_uni_t v_type = data->payload.list[1]->type;
+            bowl_t k_type = data->payload.list[0]->type;
+            bowl_t v_type = data->payload.list[1]->type;
 
             if(k_type == LITERAL) printf("%s['%s']", offset, data->payload.list[0]->payload.literal);
             if(k_type == NUMERIC) printf("%s[%lu]", offset, data->payload.list[0]->payload.numeral);
@@ -636,7 +635,7 @@ void list_print(dtree *data, const char *offset)
             int i;
             printf("%s[LIST]\n", offset);
             for(i = 0; i < data->used; i++) {
-                dt_uni_t t = data->payload.list[i]->type;
+                bowl_t t = data->payload.list[i]->type;
 
                 /* Calculate the new offset */
                 char new_offset[REAL_STRLEN(offset) + 2];
@@ -673,22 +672,22 @@ void list_print(dtree *data, const char *offset)
 }
 
 
-void dtree_print(dtree *data)
+void bowl_print(struct bowl *data)
 {
     list_print(data, "");
 }
 
-dt_err dtree_get(dtree *data, void *(*val))
+dt_err bowl_get(struct bowl *data, void *(*val))
 {
     if(data->type == LITERAL) *val = data->payload.literal;
     if(data->type == NUMERIC) *val = &data->payload.numeral;
     if(data->type == BOOLEAN) *val = &data->payload.boolean;
-    if(data->type == LIST || data->type == PAIR) *val = (dtree*) data->payload.list;
+    if(data->type == LIST || data->type == PAIR) *val = (struct bowl*) data->payload.list;
     return SUCCESS;
 }
 
 
-dt_err dtree_free(dtree *data)
+dt_err bowl_free(struct bowl *data)
 {
     if(data == NULL) return SUCCESS;
     if(data->copy == SHALLOW) return NODE_NOT_ORIGINAL;
@@ -701,7 +700,7 @@ dt_err dtree_free(dtree *data)
         dt_err err;
         for(i = 0; i < data->used; i++) {
 
-            err = dtree_free(data->payload.list[i]);
+            err = bowl_free(data->payload.list[i]);
             if(err) return err;
         }
 
@@ -717,7 +716,7 @@ dt_err dtree_free(dtree *data)
 }
 
 
-dt_err dtree_free_shallow(dtree *data)
+dt_err bowl_free_shallow(struct bowl *data)
 {
     if(data == NULL) return SUCCESS;
 
@@ -727,7 +726,7 @@ dt_err dtree_free_shallow(dtree *data)
         int i;
         dt_err err;
         for(i = 0; i < data->size; i++) {
-            err = dtree_free(data->payload.list[i]);
+            err = bowl_free(data->payload.list[i]);
             if(err) return err;
         }
 
@@ -739,7 +738,7 @@ dt_err dtree_free_shallow(dtree *data)
 }
 
 
-const char *dtree_dtype(dtree *data)
+const char *bowl_dtype(struct bowl *data)
 {
     switch(data->type) {
         case LITERAL:       return "Literal";
@@ -764,7 +763,7 @@ const char *dtree_dtype(dtree *data)
  * @param target
  * @return
  */
-int list_search(dtree **direct_parent, dtree *data, dtree *target)
+int list_search(struct bowl **direct_parent, struct bowl *data, struct bowl *target)
 {
     /* Check if data is actually valid */
     if(data == NULL) return 1;
@@ -794,10 +793,10 @@ int list_search(dtree **direct_parent, dtree *data, dtree *target)
  * Small utility function that checks if a datablock is valid to write into.
  * Potentially releases previously owned memory to prevent memory leaks
  *
- * @param data The dtree object to check
+ * @param data The bowl object to check
  * @return
  */
-dt_err data_check(dtree *data)
+dt_err data_check(struct bowl *data)
 {
     /* Check if the data block has children */
     if(data->type == LIST)

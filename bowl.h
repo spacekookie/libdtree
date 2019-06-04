@@ -18,8 +18,8 @@
  * Freeing the root node will free all children
  */
 
-#ifndef _DYNTREE_H_
-#define _DYNTREE_H_
+#ifndef _BOWL_H_
+#define _BOWL_H_
 
 #include <memory.h>
 #include <stdbool.h>
@@ -34,20 +34,20 @@ extern "C" {
 
 
 /* Type that determines what data is stored inside a tree-node */
-typedef enum dt_uni_t {
+typedef enum bowl_t {
     UNSET, LITERAL, NUMERIC, LONG_NUMERIC, BOOLEAN, LIST, PAIR, POINTER
-} dt_uni_t;
+} bowl_t;
 
 
-typedef struct dtree {
-    dt_uni_t        type;
+struct bowl {
+    bowl_t          type;
     short           encset;
     size_t          size, used;
     short           copy;
     union {
         char                *literal;
         bool                boolean;
-        struct dtree        *(*list);
+        struct bowl        *(*list);
         void                *pointer;
 #ifdef __LONG_LONG_SUPPORT__
         long long           numeral;
@@ -56,7 +56,7 @@ typedef struct dtree {
 #endif
 
     } payload;
-} dtree;
+};
 
 
 /** Define some generic error codes first that we can propagate **/
@@ -78,12 +78,12 @@ typedef enum dt_err {
 
 
 /**
- * Malloc a new dtree object
+ * Malloc a new bowl object
  *
- * @param data Reference pointer to dtree element
+ * @param data Reference pointer to bowl element
  * @return
  */
-dt_err dtree_malloc(dtree *(*data));
+dt_err bowl_malloc(struct bowl *(*data));
 
 
 /**
@@ -92,59 +92,59 @@ dt_err dtree_malloc(dtree *(*data));
  * @param data
  * @return
  */
-dt_err dtree_resettype(dtree *data);
+dt_err bowl_resettype(struct bowl *data);
 
 
 /**
  * Set the data element to a literal and save it's length
  *
- * @param data Reference to a dtree object
+ * @param data Reference to a bowl object
  * @param literal String to store
  * @return
  */
-dt_err dtree_addliteral(dtree *data, const char *literal);
+dt_err bowl_addliteral(struct bowl *data, const char *literal);
 
 
 /**
  * Set the data element to a numeral
  *
- * @param data Reference to a dtree object
+ * @param data Reference to a bowl object
  * @param numeral Number to store
  * @return
  */
-dt_err dtree_addnumeral(dtree *data, long numeral);
+dt_err bowl_addnumeral(struct bowl *data, long numeral);
 
 
 /**
  * Set the data element to a boolean. Do you really
- * need this? Consider using @dtree_add_numeral instead.
+ * need this? Consider using @bowl_add_numeral instead.
  *
- * @param data Reference to a dtree object
+ * @param data Reference to a bowl object
  * @param b boolean value (true, false)
  * @return
  */
-dt_err dtree_addboolean(dtree *data, bool b);
+dt_err bowl_addboolean(struct bowl *data, bool b);
 
 
 /**
  * Add two new elements as a PAIR node under an existing node
  *
- * @param data dtree node to become the sub-root
+ * @param data bowl node to become the sub-root
  * @param key Reference pointer to the key node
  * @param value Reference pointer to the value node
  * @return
  */
-dt_err dtree_addpair(dtree *data, dtree *(*key), dtree *(*value));
+dt_err bowl_addpair(struct bowl *data, struct bowl *(*key), struct bowl *(*value));
 
 
 /**
  * Add a new data element to the resursive data store
  *
  * @param data Root reference
- * @param new_data Reference pointer to a new dtree node
+ * @param new_data Reference pointer to a new bowl node
  * @return
  */
-dt_err dtree_addlist(dtree *data, dtree *(*new_data));
+dt_err bowl_addlist(struct bowl *data, struct bowl *(*new_data));
 
 
 /**
@@ -154,7 +154,7 @@ dt_err dtree_addlist(dtree *data, dtree *(*new_data));
  * WARNING: Can leak memory if pointer is previously set!
  *
  * To make sure that this function CAN NOT leak memory you should run
- * "dtree_resettype" on the root element to remove the pointer.
+ * "bowl_resettype" on the root element to remove the pointer.
  *
  * Also make sure that no other part of your application will use the
  * pointer at a later date!
@@ -163,7 +163,7 @@ dt_err dtree_addlist(dtree *data, dtree *(*new_data));
  * @param ptr A pointer to store in this node
  * @return
  */
-dt_err dtree_addpointer(dtree *data, void *ptr);
+dt_err bowl_addpointer(struct bowl *data, void *ptr);
 
 
 /**
@@ -180,11 +180,11 @@ dt_err dtree_addpointer(dtree *data, void *ptr);
  * @param sp Subtree node related to root to split off
  * @return
  */
-dt_err dtree_split_trees(dtree *data, dtree *sp);
+dt_err bowl_split_trees(struct bowl *data, struct bowl *sp);
 
 
 /**
- * This function is very simmilar to  dt_err "dtree_addlist"
+ * This function is very simmilar to  dt_err "bowl_addlist"
  * with the difference that it doesn't allocate new memory but instead
  * works with existing nodes.
  *
@@ -198,7 +198,7 @@ dt_err dtree_split_trees(dtree *data, dtree *sp);
  * @param merge Second root reference to merge
  * @return
  */
-dt_err dtree_merge_trees(dtree *data, dtree *merge);
+dt_err bowl_merge_trees(struct bowl *data, struct bowl *merge);
 
 
 /**
@@ -211,7 +211,7 @@ dt_err dtree_merge_trees(dtree *data, dtree *merge);
  * @param parent The node parent we are interested in
  * @return
  */
-dt_err dtree_parent(dtree *root, dtree *data, dtree **parent);
+dt_err bowl_parent(struct bowl *root, struct bowl *data, struct bowl **parent);
 
 
 /**
@@ -225,11 +225,11 @@ dt_err dtree_parent(dtree *root, dtree *data, dtree **parent);
  * @param type What type of data should be found
  * @return
  */
-dt_err dtree_search_payload(dtree *data, dtree *(*found), void *payload, dt_uni_t type);
+dt_err bowl_search_payload(struct bowl *data, struct bowl *(*found), void *payload, bowl_t type);
 
 
 /**
- * Much like #{dtree_search_payload} but limiting it's search to keys in a list structure of certain depth.
+ * Much like #{bowl_search_payload} but limiting it's search to keys in a list structure of certain depth.
  * This means that in a key-value store structure only top-level items can be searched or the entire
  * depth of the tree (or any vaue in between)
  *
@@ -239,7 +239,7 @@ dt_err dtree_search_payload(dtree *data, dtree *(*found), void *payload, dt_uni_
  * @param type
  * @return
  */
-dt_err dtree_search_keypayload(dtree *data, dtree *(*found), void *payload, dt_uni_t type, int depth);
+dt_err bowl_search_keypayload(struct bowl *data, struct bowl *(*found), void *payload, bowl_t type, int depth);
 
 
 /**
@@ -250,7 +250,7 @@ dt_err dtree_search_keypayload(dtree *data, dtree *(*found), void *payload, dt_u
  * @param copy
  * @return
  */
-dt_err dtree_copy_deep(dtree *data, dtree *(*copy));
+dt_err bowl_copy_deep(struct bowl *data, struct bowl *(*copy));
 
 
 /**
@@ -265,7 +265,7 @@ dt_err dtree_copy_deep(dtree *data, dtree *(*copy));
  * @param copy
  * @return
  */
-dt_err dtree_copy(dtree *data, dtree *(*copy));
+dt_err bowl_copy(struct bowl *data, struct bowl *(*copy));
 
 
 /**
@@ -281,7 +281,7 @@ dt_err dtree_copy(dtree *data, dtree *(*copy));
  * @param val Reference pointer to write into
  * @return
  */
-dt_err dtree_get(dtree *data, void *(*val));
+dt_err bowl_get(struct bowl *data, void *(*val));
 
 
 /**
@@ -290,15 +290,15 @@ dt_err dtree_get(dtree *data, void *(*val));
  * @param data
  * @return
  */
-const char *dtree_dtype(dtree *data);
+const char *bowl_dtype(struct bowl *data);
 
 
 /**
- * Prints the data dtree object and all of its children
+ * Prints the data bowl object and all of its children
  *
  * @param data
  */
-void dtree_print(dtree *data);
+void bowl_print(struct bowl *data);
 
 
 /**
@@ -308,18 +308,18 @@ void dtree_print(dtree *data);
  * @param data
  * @return
  */
-dt_err dtree_free_shallow(dtree *data);
+dt_err bowl_free_shallow(struct bowl *data);
 
 
 /**
- * Like #{dtree_free_shallow} but will also remove structs that
+ * Like #{bowl_free_shallow} but will also remove structs that
  * weren't allocated by libdyntree. Will throw warnings when trying
  * to free payloads from shallow copy nodes
  *
  * @param data
  * @return
  */
-dt_err dtree_free(dtree *data);
+dt_err bowl_free(struct bowl *data);
 
 
 /**************************
@@ -328,7 +328,7 @@ dt_err dtree_free(dtree *data);
  *
  **************************/
 
-const char *dtree_err_getmsg(dt_err *e);
+const char *bowl_err_getmsg(dt_err *e);
 
 /***************************
  *
@@ -345,7 +345,7 @@ const char *dtree_err_getmsg(dt_err *e);
  * @param setting Look at DYNTREE_JSON flags for options
  * @return
  */
-dt_err dtree_encode_set(dtree *data, short setting);
+dt_err bowl_encode_set(struct bowl *data, short setting);
 
 /**
  * A simple list node walker that encodes a dyn_tree node hirarchy
@@ -358,7 +358,7 @@ dt_err dtree_encode_set(dtree *data, short setting);
  * @param json_data
  * @return
  */
-dt_err dtree_encode_json(dtree *data, char *json_data);
+dt_err bowl_encode_json(struct bowl *data, char *json_data);
 
 
 /**
@@ -370,7 +370,7 @@ dt_err dtree_encode_json(dtree *data, char *json_data);
  * @param json_data Input json string
  * @return
  */
-dt_err dtree_decode_json(dtree *(*data), const char *json_data, size_t len);
+dt_err bowl_decode_json(struct bowl *(*data), const char *json_data, size_t len);
 
 #ifdef __cplusplus
 }
