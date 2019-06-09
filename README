@@ -1,19 +1,16 @@
-libdtree
-========
+libbowl
+=======
 
 The last C datastructure library you will use. Provides a versatile
-tree-like structure that can act as lists, sets and more! Many
-features are still experimental and the API might change at any point
-so be aware.
+structure that can act as lists, sets and more!
+
 
 How to build
 ------------
 
-libdyntree is built with cmake. It has no external dependencies and
-compilation has been tested with gcc 6+ on Linx systems. It was tested
-with C99 but shouldbe able to compile with ANSI C as well.
+An out-of-source build is recommended.
 
-```console
+```
 $> mkdir build; cd build
 $> cmake ..
 $> make -j 2
@@ -22,42 +19,6 @@ $> make -j 2
 This will create a `.so` file. If you require a static object, you can
 change the linking behaviour in the `CMakeLists.txt` file.
 
-How to use
-----------
-
-Everything resolves around `dtree` objects and providing fields to API
-functions. Generally, memory is managed for you by libdtree:
-
-```C
-dt_err err;
-dtree *data;
-err = dtree_malloc(&data);
-```
-
-Alternatively you can use the shortcut alloc functions provided:
-
-```C
-dtree *str_node = dtree_alloc_literal("My string in this node!");
-dtree *num_node = dtree_alloc_numeral(1337);
-
-dtree *key, *val;
-dtree *pair_node = dtree *dtree_allocpair_new(&key, &val);
-```
-
-Nodes can change their type, provided they get reset before assigning
-a different type of data to them first. The available types are listed
-below:
-
- - Unset
- - Literal
- - Numerical
- - Recursive
- - Pair
- - Pointer
-
-Some more advanced functions include a getter, a search, a keyed
-search as well as tree merge and split functions. Please consult the
-wiki for details on how to use some of these functions.
 
 License
 -------
