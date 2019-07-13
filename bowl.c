@@ -126,7 +126,7 @@ err_t bowl_free(struct bowl *self)
     err_t e;
     switch(self->type) {
         case LEAF: e = data_free(self->_pl.data); break;
-        case ARRAY: e = array_free(self); break;
+        case ARRAY | HASH: e = array_free(self); break;
         default: e = INVALID_STATE; break;
     }
     if(e) return e;
