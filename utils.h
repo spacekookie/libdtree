@@ -13,6 +13,8 @@ err_t _array_search(void **, size_t, size_t *out, void *in);
 
 err_t _array_remove(void **, size_t idx, size_t len, void **out);
 
+err_t _hash(char *str, size_t len, size_t *out);
+
 #ifdef __cplusplus
 }
 #endif

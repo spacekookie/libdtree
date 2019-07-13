@@ -3,10 +3,11 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c11")
 set(CMAKE_BUILD_TYPE Debug)
 
 project(bowl)
-add_library(bowl SHARED bowl.c
+add_library(bowl SHARED array.c
+                        bowl.c
                         data.c
-                        utils.c
-                        array.c)
+                        hash.c
+                        utils.c)
 
 target_include_directories(bowl PUBLIC ".")
 

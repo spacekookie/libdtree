@@ -12,7 +12,7 @@ extern "C" {
 #define CHECK(ptr, err) if(!ptr) return err;
 
 /** Define some generic error codes first that we can propagate **/
-typedef enum err_t {
+typedef enum {
     OK = 0,
     ERR = -1,
     NOT_IMPLEMENTED = 1,    // A runtime error for missing features
@@ -22,7 +22,7 @@ typedef enum err_t {
     INVALID_STATE = 4,      // Calling an operation on an invalid state
 } err_t;
 
-typedef enum data_t {
+typedef enum {
     LITERAL,    // Any string that is \0 terminated
     INTEGER,    // Integer value
     REAL,       // Floating point value
@@ -30,7 +30,7 @@ typedef enum data_t {
     RAW         // A platform-length pointer
 } data_t;
 
-typedef enum bowl_t {
+typedef enum {
     LEAF = 1, ARRAY, HASH, LINKED
 } bowl_t;
 
@@ -67,14 +67,17 @@ struct b_ptr {
 /// Allocate memory for an new, empty bowl node
 err_t bowl_malloc(struct bowl **, bowl_t);
 
-/// Insert one node into another
-err_t bowl_insert(struct bowl *, struct bowl *);
+/// Insert one node at the end of another
+err_t bowl_append(struct bowl *, struct bowl *);
+
+/// Insert a node under a specific key (relevant for HASH nodes)
+err_t bowl_insert_key(struct bowl *, char *key, struct bowl *);
 
 /// Insert a node into a specific index of another node
-err_t bowl_insert_key(struct bowl *, size_t idx, struct bowl *);
+err_t bowl_insert_idx(struct bowl *, size_t idx, struct bowl *);
 
 /// Insert and swap a key in place, returning the old one
-err_t bowl_swap_key(struct bowl *, size_t idx, struct bowl *, struct bowl **);
+err_t bowl_swap_idx(struct bowl *, size_t idx, struct bowl *, struct bowl **);
 
 /// Remove a bowl node by it's pointer reference
 err_t bowl_remove(struct bowl *, struct bowl *);

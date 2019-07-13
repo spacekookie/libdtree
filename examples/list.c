@@ -9,15 +9,15 @@ int main()
 
     struct bowl *a;
     data_malloc(&a, LITERAL, "Destroy capitalism");
-    bowl_insert(root, a);
+    bowl_append(root, a);
 
     struct bowl *b;
     data_malloc(&b, INTEGER, 1312);
-    bowl_insert(root, b);
+    bowl_append(root, b);
 
     struct bowl *c;
     data_malloc(&c, LITERAL, "Alerta, Antifascista!");
-    bowl_insert(root, c);
+    bowl_append(root, c);
 
     return bowl_free(root);
 }

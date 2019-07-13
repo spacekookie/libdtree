@@ -30,15 +30,15 @@ int main()
     if(e) return e;
 
     // Add the d node to c
-    e = bowl_insert(c, d);
+    e = bowl_append(c, d);
     if(e) e;
 
     // Add other nodes to root
-    e = bowl_insert(root, a);
+    e = bowl_append(root, a);
     if(e) return e;
-    e = bowl_insert(root, b);
+    e = bowl_append(root, b);
     if(e) return e;
-    e = bowl_insert(root, c);
+    e = bowl_append(root, c);
     if(e) return e;
 
     e = bowl_free(root);

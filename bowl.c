@@ -1,5 +1,6 @@
 #include "bowl.h"
 #include "array.h"
+#include "hash.h"
 
 #include <stdlib.h>
 #include <memory.h>
@@ -37,7 +38,7 @@ err_t bowl_malloc(struct bowl **ptr, bowl_t type)
     return OK;
 }
 
-err_t bowl_insert(struct bowl *self, struct bowl *new)
+err_t bowl_append(struct bowl *self, struct bowl *new)
 {
     CHECK(self, INVALID_PARAMS)
     CHECK(new, INVALID_PARAMS)
@@ -52,7 +53,19 @@ err_t bowl_insert(struct bowl *self, struct bowl *new)
     return OK;
 }
 
-err_t bowl_insert_key(struct bowl *self, size_t idx, struct bowl *child)
+err_t bowl_insert_key(struct bowl *self, char *key, struct bowl *child)
+{
+    CHECK(self, INVALID_PARAMS)
+    CHECK(child, INVALID_PARAMS)
+    CHECK(key, INVALID_PARAMS)
+
+    switch(self->type) {
+        case HASH: return hash_insert_key(self, key, child);
+        default: return INVALID_PARAMS;
+    }
+}
+
+err_t bowl_insert_idx(struct bowl *self, size_t idx, struct bowl *child)
 {
     CHECK(self, INVALID_PARAMS)
     CHECK(child, INVALID_PARAMS)
@@ -66,7 +79,7 @@ err_t bowl_insert_key(struct bowl *self, size_t idx, struct bowl *child)
     }
 }
 
-err_t bowl_swap_key(struct bowl *self, size_t idx, struct bowl *child, struct bowl **prev)
+err_t bowl_swap_idx(struct bowl *self, size_t idx, struct bowl *child, struct bowl **prev)
 {
     CHECK(self, INVALID_PARAMS)
     CHECK(child, INVALID_PARAMS)
