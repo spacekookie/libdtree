@@ -21,6 +21,8 @@ err_t array_remove_key(struct bowl *, size_t, struct bowl **);
 
 err_t array_free(struct bowl *);
 
+err_t array_free_shallow(struct bowl_arr *);
+
 #ifdef __cplusplus
 }
 #endif

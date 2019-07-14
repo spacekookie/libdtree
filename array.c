@@ -12,7 +12,7 @@ err_t array_malloc(struct bowl *self, size_t size)
 
     struct bowl_arr *arr = malloc(sizeof(struct bowl_arr));
     CHECK(arr, MALLOC_FAILED)
-    arr->size = 2;
+    arr->size = size;
     arr->used = 0;
 
     struct bowl **ptr = calloc(sizeof(struct bowl *), arr->size);
@@ -109,11 +109,20 @@ err_t array_free(struct bowl *self)
     struct bowl_arr *arr = self->_pl.array;
     CHECK(arr, INVALID_STATE)
 
+    err_t e;
     for(int i = 0; i < arr->used; i++) {
-        err_t e = bowl_free(arr->ptr[i]);
+        e = bowl_free(arr->ptr[i]);
         if(e) break;
     }
 
+    free(arr->ptr);
+    free(arr);
+    return e;
+}
+
+err_t array_free_shallow(struct bowl_arr *arr)
+{
+    CHECK(arr, INVALID_STATE)
     free(arr->ptr);
     free(arr);
     return OK;

@@ -31,7 +31,7 @@ err_t bowl_malloc(struct bowl **ptr, bowl_t type)
 
     switch((*ptr)->type) {
         case LEAF: return OK; // No further allocation needed
-        case ARRAY: return array_malloc(*ptr, ARRAY_START_SIZE);
+        case ARRAY | HASH: return array_malloc(*ptr, ARRAY_START_SIZE);
         default: return INVALID_STATE;
     }
 
@@ -139,7 +139,8 @@ err_t bowl_free(struct bowl *self)
     err_t e;
     switch(self->type) {
         case LEAF: e = data_free(self->_pl.data); break;
-        case ARRAY | HASH: e = array_free(self); break;
+        case ARRAY: e = array_free(self); break;
+        case HASH: e = hash_free(self); break;
         default: e = INVALID_STATE; break;
     }
     if(e) return e;

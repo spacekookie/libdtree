@@ -49,7 +49,7 @@ err_t _array_remove(void **ptr, size_t idx, size_t len, void **out)
 err_t _hash(char *str, size_t len, size_t *out)
 {
     CHECK(str, INVALID_PARAMS)
-    CHECK((len < 0), INVALID_PARAMS)
+    CHECK((len > 0), INVALID_PARAMS)
 
     // Implements the "murmur" non-cryptographic hash
 
