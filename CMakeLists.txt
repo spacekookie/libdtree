@@ -15,9 +15,12 @@ target_include_directories(bowl PUBLIC ".")
 ################### EXAMPLES ###################
 
 if(BUILD_EXAMPLES)
-    add_executable(ex_tree examples/tree.c)
-    target_link_libraries(ex_tree bowl)
+    add_executable(example_tree examples/tree.c)
+    target_link_libraries(example_tree bowl)
 
-    add_executable(ex_list examples/list.c)
-    target_link_libraries(ex_list bowl)
+    add_executable(example_list examples/list.c)
+    target_link_libraries(example_list bowl)
+
+    add_executable(example_hash examples/hash.c)
+    target_link_libraries(example_hash bowl)
 endif()
