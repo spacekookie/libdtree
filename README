@@ -4,6 +4,8 @@ libbowl
 The last C datastructure library you will use. Provides a versatile
 structure that can act as lists, sets and more!
 
+Issues are being tracked here: https://todo.sr.ht/~spacekookie/libbowl
+
 
 How to build
 ------------
