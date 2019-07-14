@@ -65,9 +65,21 @@ err_t hash_insert_key(struct bowl *self, char *key, struct bowl *child)
 
 err_t hash_remove_key(struct bowl *self, char *key, struct bowl **child)
 {
+
     CHECK(self, INVALID_STATE)
+    CHECK(child, INVALID_STATE)
     CHECK(key, INVALID_STATE)
 
+    // Even though we're a HASH node, we use an array under the hood
+    struct bowl_arr *arr = self->_pl.array;
+    CHECK(arr, INVALID_STATE)
+
+    size_t idx;
+    err_t e = _hash(key, arr->size, &idx);
+    if(e) return e;
+
+    (*child) = arr->ptr[idx];
+    arr->ptr[idx] = NULL;
     return OK;
 }
  

@@ -82,8 +82,11 @@ err_t bowl_swap_idx(struct bowl *, size_t idx, struct bowl *, struct bowl **);
 /// Remove a bowl node by it's pointer reference
 err_t bowl_remove(struct bowl *, struct bowl *);
 
+/// Remove a specific key (relevant for HASH nodes)
+err_t bowl_remove_key(struct bowl *, char *key, struct bowl **);
+
 /// Removing a bowl node with a key
-err_t bowl_remove_key(struct bowl *, size_t idx, struct bowl **);
+err_t bowl_remove_idx(struct bowl *, size_t idx, struct bowl **);
 
 /// Cascade-free memory from a bowl node
 err_t bowl_free(struct bowl *);

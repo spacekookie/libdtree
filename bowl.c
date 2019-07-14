@@ -106,7 +106,20 @@ err_t bowl_remove(struct bowl *self, struct bowl *child)
     }
 }
 
-err_t bowl_remove_key(struct bowl *self, size_t idx, struct bowl **prev)
+err_t bowl_remove_key(struct bowl *self, char *key, struct bowl **prev)
+{
+    CHECK(self, INVALID_PARAMS)
+    CHECK(key, INVALID_PARAMS)
+
+    switch(self->type) {
+        case LEAF: return INVALID_PARAMS;
+        case HASH: return hash_remove_key(self, key, prev);
+
+        default: return INVALID_STATE;
+    }
+}
+
+err_t bowl_remove_idx(struct bowl *self, size_t idx, struct bowl **prev)
 {
     CHECK(self, INVALID_PARAMS)
     CHECK((idx >= 0), INVALID_PARAMS)
